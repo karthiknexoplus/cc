@@ -9,6 +9,7 @@ from flask_migrate import Migrate
 from datetime import datetime
 import io
 import csv
+import pandas as pd  # Add pandas for Excel handling
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -1539,6 +1540,70 @@ def vehicle_reports():
         return jsonify({
             'status': 'error',
             'message': f'Error generating report: {str(e)}'
+        }), 500
+
+@app.route('/api/tariffs/upload-intervals', methods=['POST'])
+def upload_tariff_intervals():
+    try:
+        if 'excel_file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+
+        file = request.files['excel_file']
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            return jsonify({'success': False, 'error': 'Invalid file format. Please upload an Excel file'}), 400
+
+        # Read Excel file
+        df = pd.read_excel(file)
+        
+        # Validate required columns
+        required_columns = ['From', 'To', 'Amount']
+        if not all(col in df.columns for col in required_columns):
+            return jsonify({
+                'success': False, 
+                'error': 'Excel file must contain columns: From, To, Amount'
+            }), 400
+
+        # Convert to list of intervals
+        intervals = []
+        for _, row in df.iterrows():
+            intervals.append({
+                'from_time': int(row['From']),
+                'to_time': int(row['To']),
+                'amount': float(row['Amount'])
+            })
+
+        # Validate intervals
+        last_to_time = -1
+        for interval in intervals:
+            if interval['from_time'] >= interval['to_time']:
+                return jsonify({
+                    'success': False,
+                    'error': f'Invalid interval: From time ({interval["from_time"]}) must be less than To time ({interval["to_time"]})'
+                }), 400
+            
+            if interval['from_time'] <= last_to_time:
+                return jsonify({
+                    'success': False,
+                    'error': 'Intervals must be continuous and non-overlapping'
+                }), 400
+            
+            if interval['amount'] <= 0:
+                return jsonify({
+                    'success': False,
+                    'error': f'Invalid amount: {interval["amount"]} must be greater than 0'
+                }), 400
+            
+            last_to_time = interval['to_time']
+
+        return jsonify({
+            'success': True,
+            'intervals': intervals
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error processing Excel file: {str(e)}'
         }), 500
 
 if __name__ == '__main__':
