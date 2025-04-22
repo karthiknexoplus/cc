@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-dark">Analytics Dashboard</h1>
+            <p class="text-muted mb-0">Real-time insights and performance metrics</p>
+        </div>
+        <div class="d-flex gap-2">
+            <div class="dropdown">
+                <button class="btn btn-light border dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-calendar-alt me-2"></i>Last 7 Days
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#">Today</a></li>
+                    <li><a class="dropdown-item" href="#">Last 7 Days</a></li>
+                    <li><a class="dropdown-item" href="#">Last 30 Days</a></li>
+                    <li><a class="dropdown-item" href="#">This Month</a></li>
+                    <li><a class="dropdown-item" href="#">Custom Range</a></li>
+                </ul>
+            </div>
+            <button class="btn btn-primary">
+                <i class="fas fa-download me-2"></i>Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="card-title text-muted mb-0">Total Revenue</h6>
+                        <div class="icon-circle bg-primary bg-opacity-10">
+                            <i class="fas fa-dollar-sign text-primary"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1">₹24,500</h3>
+                    <p class="text-success mb-0">
+                        <i class="fas fa-arrow-up me-1"></i>12.5% from last period
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="card-title text-muted mb-0">Total Transactions</h6>
+                        <div class="icon-circle bg-success bg-opacity-10">
+                            <i class="fas fa-exchange-alt text-success"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1">1,234</h3>
+                    <p class="text-success mb-0">
+                        <i class="fas fa-arrow-up me-1"></i>8.2% from last period
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="card-title text-muted mb-0">Average Stay</h6>
+                        <div class="icon-circle bg-warning bg-opacity-10">
+                            <i class="fas fa-clock text-warning"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1">45 min</h3>
+                    <p class="text-danger mb-0">
+                        <i class="fas fa-arrow-down me-1"></i>2.1% from last period
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="card-title text-muted mb-0">Occupancy Rate</h6>
+                        <div class="icon-circle bg-info bg-opacity-10">
+                            <i class="fas fa-chart-pie text-info"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-1">78%</h3>
+                    <p class="text-success mb-0">
+                        <i class="fas fa-arrow-up me-1"></i>5.3% from last period
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row g-4">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="card-title mb-0">Revenue Analysis</h5>
+                        <div class="dropdown">
+                            <button class="btn btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#">Daily</a></li>
+                                <li><a class="dropdown-item" href="#">Weekly</a></li>
+                                <li><a class="dropdown-item" href="#">Monthly</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="card-title mb-0">Vehicle Categories</h5>
+                        <div class="dropdown">
+                            <button class="btn btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#">View Details</a></li>
+                                <li><a class="dropdown-item" href="#">Export</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="vehicleChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="card-title mb-0">Transaction Analysis</h5>
+                        <div class="dropdown">
+                            <button class="btn btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#">Hourly</a></li>
+                                <li><a class="dropdown-item" href="#">Daily</a></li>
+                                <li><a class="dropdown-item" href="#">Weekly</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="transactionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="card-title mb-0">Location Performance</h5>
+                        <div class="dropdown">
+                            <button class="btn btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#">View Details</a></li>
+                                <li><a class="dropdown-item" href="#">Export</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="locationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
+        border: none;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(107, 115, 255, 0.3);
+    }
+
+    .btn-light {
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-light:hover {
+        background-color: #f8f9fa;
+        transform: translateY(-2px);
+    }
+
+    .dropdown-menu {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+    }
+
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .text-success {
+        color: #28a745 !important;
+    }
+
+    .text-danger {
+        color: #dc3545 !important;
+    }
+
+    .bg-opacity-10 {
+        opacity: 0.1;
+    }
+</style>
+
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Revenue Chart
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Revenue',
+                data: [12000, 19000, 15000, 25000, 22000, 30000, 28000],
+                borderColor: '#6B73FF',
+                backgroundColor: 'rgba(107, 115, 255, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        display: true,
+                        drawBorder: false
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Vehicle Chart
+    const vehicleCtx = document.getElementById('vehicleChart').getContext('2d');
+    new Chart(vehicleCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['2-Wheeler', '4-Wheeler', 'Heavy Vehicle'],
+            datasets: [{
+                data: [30, 50, 20],
+                backgroundColor: ['#6B73FF', '#FF6B6B', '#4CAF50']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Transaction Chart
+    const transactionCtx = document.getElementById('transactionChart').getContext('2d');
+    new Chart(transactionCtx, {
+        type: 'bar',
+        data: {
+            labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+            datasets: [{
+                label: 'Transactions',
+                data: [50, 30, 100, 150, 200, 180],
+                backgroundColor: '#FF6B6B'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        display: true,
+                        drawBorder: false
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Location Chart
+    const locationCtx = document.getElementById('locationChart').getContext('2d');
+    new Chart(locationCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Location 1', 'Location 2', 'Location 3', 'Location 4'],
+            datasets: [{
+                label: 'Revenue',
+                data: [15000, 12000, 18000, 9000],
+                backgroundColor: '#6B73FF'
+            }, {
+                label: 'Transactions',
+                data: [300, 250, 400, 200],
+                backgroundColor: '#FF6B6B'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        display: true,
+                        drawBorder: false
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %} 

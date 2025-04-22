@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Locations{% endblock %}
+
+{% block content %}
+<style>
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .page-header h1 {
+        color: #1a237e;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .add-btn {
+        background: #1a237e;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .add-btn:hover {
+        background: #0d1a6b;
+        transform: translateY(-2px);
+    }
+
+    .search-bar {
+        display: flex;
+        align-items: center;
+        background: white;
+        padding: 10px 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        margin-bottom: 15px;
+    }
+
+    .search-bar i {
+        color: #666;
+        margin-right: 10px;
+        font-size: 0.9rem;
+    }
+
+    .search-bar input {
+        border: none;
+        outline: none;
+        width: 100%;
+        font-size: 0.9rem;
+    }
+
+    .locations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 15px;
+    }
+
+    .location-card {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .location-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .location-header {
+        background: #1a237e;
+        color: white;
+        padding: 12px 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .location-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .location-body {
+        padding: 15px;
+    }
+
+    .location-info {
+        margin-bottom: 10px;
+    }
+
+    .location-info p {
+        margin: 3px 0;
+        color: #666;
+        font-size: 0.85rem;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .location-info strong {
+        color: #333;
+        font-weight: 500;
+    }
+
+    .location-footer {
+        padding: 10px 15px;
+        background: #f8f9fa;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .location-status {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .location-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .action-btn {
+        padding: 6px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+    }
+
+    .edit-btn {
+        background: #1a237e;
+        color: white;
+    }
+
+    .edit-btn:hover {
+        background: #0d1a6b;
+    }
+
+    .delete-btn {
+        background: #dc3545;
+        color: white;
+    }
+
+    .delete-btn:hover {
+        background: #c82333;
+    }
+
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .locations-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="container">
+    <div class="page-header">
+        <h1>Locations</h1>
+        <a href="{{ url_for('add_location') }}" class="add-btn">
+            <i class="fas fa-plus"></i> Add Location
+        </a>
+    </div>
+
+    <div class="search-bar">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search locations...">
+    </div>
+
+    <div class="locations-grid" id="locationsGrid">
+        {% for location in locations %}
+            <div class="location-card">
+                <div class="location-header">
+                    <h3>{{ location.name }}</h3>
+                    <span class="location-status status-{{ location.status }}">
+                        {{ location.status|title }}
+                    </span>
+                </div>
+                <div class="location-body">
+                    <div class="location-info">
+                        <p><strong>Address:</strong> <span>{{ location.address }}</span></p>
+                        <p><strong>City:</strong> <span>{{ location.city }}</span></p>
+                        <p><strong>State:</strong> <span>{{ location.state }}</span></p>
+                        <p><strong>Country:</strong> <span>{{ location.country }}</span></p>
+                        <p><strong>Postal Code:</strong> <span>{{ location.postal_code }}</span></p>
+                        <p><strong>Total Spaces:</strong> <span>{{ location.total_spaces }}</span></p>
+                        <p><strong>Available:</strong> <span>{{ location.available_spaces }}</span></p>
+                    </div>
+                </div>
+                <div class="location-footer">
+                    <div class="location-actions">
+                        <a href="{{ url_for('edit_location', id=location.id) }}" class="action-btn edit-btn">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="{{ url_for('delete_location', id=location.id) }}" class="action-btn delete-btn" onclick="return confirm('Are you sure you want to delete this location?')">
+                            <i class="fas fa-trash"></i> Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const cards = document.querySelectorAll('.location-card');
+        
+        cards.forEach(card => {
+            const text = card.textContent.toLowerCase();
+            if (text.includes(searchTerm)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %} 

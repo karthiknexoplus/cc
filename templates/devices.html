@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Devices{% endblock %}
+
+{% block content %}
+<style>
+    .devices-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .page-title {
+        font-size: 1.5rem;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .add-button {
+        background: #1a237e;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 5px;
+        text-decoration: none;
+        transition: background-color 0.3s;
+    }
+
+    .add-button:hover {
+        background: #0d1b5a;
+    }
+
+    .search-bar {
+        margin-bottom: 20px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1rem;
+    }
+
+    .devices-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 15px;
+    }
+
+    .device-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    }
+
+    .device-header {
+        padding: 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .device-id {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .device-status {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .status-active {
+        background: rgba(76, 175, 80, 0.1);
+        color: #4caf50;
+    }
+
+    .status-inactive {
+        background: rgba(244, 67, 54, 0.1);
+        color: #f44336;
+    }
+
+    .device-body {
+        padding: 15px;
+    }
+
+    .device-info {
+        margin-bottom: 15px;
+    }
+
+    .info-label {
+        color: #666;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+    }
+
+    .info-value {
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+    .printer-settings {
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+
+    .printer-settings h4 {
+        color: #333;
+        font-size: 0.95rem;
+        margin-bottom: 8px;
+    }
+
+    .printer-text {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #666;
+        white-space: pre-wrap;
+        margin-bottom: 8px;
+        padding: 8px;
+        background: white;
+        border-radius: 4px;
+        border: 1px solid #eee;
+    }
+
+    .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-maintenance {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .device-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .action-btn {
+        padding: 6px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+    }
+
+    .edit-btn {
+        background: #1a237e;
+        color: white;
+    }
+
+    .edit-btn:hover {
+        background: #0d1a6b;
+    }
+
+    .delete-btn {
+        background: #dc3545;
+        color: white;
+    }
+
+    .delete-btn:hover {
+        background: #c82333;
+    }
+
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .devices-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="container">
+    <div class="page-header">
+        <h1>Devices</h1>
+        <a href="{{ url_for('add_device') }}" class="add-btn">
+            <i class="fas fa-plus"></i> Add Device
+        </a>
+    </div>
+
+    <div class="search-bar">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search devices...">
+    </div>
+
+    <div class="devices-grid" id="devicesGrid">
+        {% for device in devices %}
+            <div class="device-card">
+                <div class="device-header">
+                    <h3>{{ device.device_id }}</h3>
+                    <span class="device-status status-{{ device.status }}">
+                        {{ device.status|title }}
+                    </span>
+                </div>
+                <div class="device-body">
+                    <div class="device-info">
+                        <p><strong>Site:</strong> <span>{{ device.site.name }}</span></p>
+                        <p><strong>Location:</strong> <span>{{ device.site.location.name }}</span></p>
+                        <p><strong>Type:</strong> <span>{{ device.device_type|title }}</span></p>
+                        <p><strong>UPI ID:</strong> <span>{{ device.upi_id }}</span></p>
+                    </div>
+                </div>
+                <div class="device-footer">
+                    <div class="device-actions">
+                        <a href="{{ url_for('edit_device', id=device.id) }}" class="action-btn edit-btn">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="{{ url_for('delete_device', id=device.id) }}" class="action-btn delete-btn" onclick="return confirm('Are you sure you want to delete this device?')">
+                            <i class="fas fa-trash"></i> Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const cards = document.querySelectorAll('.device-card');
+        
+        cards.forEach(card => {
+            const text = card.textContent.toLowerCase();
+            if (text.includes(searchTerm)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %} 

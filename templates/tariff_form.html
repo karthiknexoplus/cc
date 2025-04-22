@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+
+{% block title %}{% if tariff %}Edit{% else %}Add{% endif %} Tariff{% endblock %}
+
+{% block content %}
+<style>
+    .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .header {
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+
+    .header h1 {
+        margin: 0;
+        color: #1a237e;
+        font-size: 2rem;
+        font-weight: 600;
+    }
+
+    .form-container {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 8px;
+        color: #666;
+        font-weight: 500;
+        font-size: 0.95rem;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f5f7fa;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus {
+        outline: none;
+        border-color: #1a237e;
+        box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+        background: white;
+    }
+
+    .time-intervals {
+        margin-top: 20px;
+    }
+
+    .interval-card {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #eee;
+    }
+
+    .interval-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .interval-title {
+        font-weight: 600;
+        color: #1a237e;
+    }
+
+    .remove-interval {
+        color: #dc3545;
+        cursor: pointer;
+        padding: 5px 10px;
+        border-radius: 5px;
+        transition: all 0.3s ease;
+    }
+
+    .remove-interval:hover {
+        background: #dc3545;
+        color: white;
+    }
+
+    .add-interval {
+        background: #1a237e;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 15px;
+        transition: all 0.3s ease;
+    }
+
+    .add-interval:hover {
+        background: #0d1a6b;
+        transform: translateY(-2px);
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .btn {
+        padding: 12px 25px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+    }
+
+    .btn-primary {
+        background: #1a237e;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #0d1a6b;
+        transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+        background: #666;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #555;
+        transform: translateY(-2px);
+    }
+
+    .alert {
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.95rem;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<div class="container">
+    <div class="header">
+        <h1>{% if tariff %}Edit{% else %}Add{% endif %} Tariff</h1>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    <i class="fas fa-{% if category == 'success' %}check-circle{% else %}exclamation-circle{% endif %}"></i>
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="form-container">
+        <form method="POST" id="tariffForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="name">Tariff Name</label>
+                    <input type="text" id="name" name="name" value="{{ tariff.name if tariff else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status" required>
+                        <option value="active" {% if tariff and tariff.status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if tariff and tariff.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="location_id">Location</label>
+                    <select id="location_id" name="location_id" required>
+                        <option value="">Select Location</option>
+                        {% for location in locations %}
+                            <option value="{{ location.id }}" {% if tariff and tariff.location_id == location.id %}selected{% endif %}>
+                                {{ location.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="site_id">Site</label>
+                    <select id="site_id" name="site_id" required>
+                        <option value="">Select Site</option>
+                        {% for site in sites %}
+                            <option value="{{ site.id }}" {% if tariff and tariff.site_id == site.id %}selected{% endif %}>
+                                {{ site.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="device_id">Device</label>
+                    <select id="device_id" name="device_id" required>
+                        <option value="">Select Device</option>
+                        {% for device in devices %}
+                            <option value="{{ device.id }}" {% if tariff and tariff.device_id == device.id %}selected{% endif %}>
+                                {{ device.device_id }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="vehicle_category_id">Vehicle Category</label>
+                    <select id="vehicle_category_id" name="vehicle_category_id" required>
+                        <option value="">Select Vehicle Category</option>
+                        {% for category in vehicle_categories %}
+                            <option value="{{ category.id }}" {% if tariff and tariff.vehicle_category_id == category.id %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="grace_time">Grace Time (minutes)</label>
+                <input type="number" id="grace_time" name="grace_time" min="0" value="{{ tariff.grace_time if tariff else '15' }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Time Intervals</label>
+                <div class="time-intervals" id="timeIntervals">
+                    {% if tariff and tariff.intervals %}
+                        {% for interval in tariff.intervals %}
+                            <div class="interval-card">
+                                <div class="interval-header">
+                                    <span class="interval-title">Interval {{ loop.index }}</span>
+                                    <span class="remove-interval" onclick="removeInterval(this)">
+                                        <i class="fas fa-trash"></i>
+                                    </span>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>From (minutes)</label>
+                                        <input type="number" name="interval_from[]" min="0" value="{{ interval.from_time }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>To (minutes)</label>
+                                        <input type="number" name="interval_to[]" min="0" value="{{ interval.to_time }}" required>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount (₹)</label>
+                                    <input type="number" name="interval_amount[]" min="0" step="0.01" value="{{ interval.amount }}" required>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="interval-card">
+                            <div class="interval-header">
+                                <span class="interval-title">Interval 1</span>
+                                <span class="remove-interval" onclick="removeInterval(this)">
+                                    <i class="fas fa-trash"></i>
+                                </span>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>From (minutes)</label>
+                                    <input type="number" name="interval_from[]" min="0" value="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>To (minutes)</label>
+                                    <input type="number" name="interval_to[]" min="0" value="60" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Amount (₹)</label>
+                                <input type="number" name="interval_amount[]" min="0" step="0.01" value="20" required>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                <button type="button" class="add-interval" onclick="addInterval()">
+                    <i class="fas fa-plus"></i> Add Interval
+                </button>
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('tariffs') }}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let intervalCount = document.querySelectorAll('.interval-card').length;
+
+    function addInterval() {
+        intervalCount++;
+        const intervalCard = document.createElement('div');
+        intervalCard.className = 'interval-card';
+        intervalCard.innerHTML = `
+            <div class="interval-header">
+                <span class="interval-title">Interval ${intervalCount}</span>
+                <span class="remove-interval" onclick="removeInterval(this)">
+                    <i class="fas fa-trash"></i>
+                </span>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>From (minutes)</label>
+                    <input type="number" name="interval_from[]" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>To (minutes)</label>
+                    <input type="number" name="interval_to[]" min="0" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Amount (₹)</label>
+                <input type="number" name="interval_amount[]" min="0" step="0.01" required>
+            </div>
+        `;
+        document.getElementById('timeIntervals').appendChild(intervalCard);
+    }
+
+    function removeInterval(element) {
+        if (document.querySelectorAll('.interval-card').length > 1) {
+            element.closest('.interval-card').remove();
+            // Update interval numbers
+            const intervals = document.querySelectorAll('.interval-card');
+            intervals.forEach((interval, index) => {
+                interval.querySelector('.interval-title').textContent = `Interval ${index + 1}`;
+            });
+            intervalCount = intervals.length;
+        }
+    }
+
+    // Update sites dropdown based on selected location
+    document.getElementById('location_id').addEventListener('change', function() {
+        const locationId = this.value;
+        const siteSelect = document.getElementById('site_id');
+        
+        // Clear existing options
+        siteSelect.innerHTML = '<option value="">Select Site</option>';
+        
+        // Add sites for selected location
+        {% for site in sites %}
+            if ({{ site.location_id }} == locationId) {
+                const option = document.createElement('option');
+                option.value = '{{ site.id }}';
+                option.textContent = '{{ site.name }}';
+                siteSelect.appendChild(option);
+            }
+        {% endfor %}
+    });
+
+    // Update devices dropdown based on selected site
+    document.getElementById('site_id').addEventListener('change', function() {
+        const siteId = this.value;
+        const deviceSelect = document.getElementById('device_id');
+        
+        // Clear existing options
+        deviceSelect.innerHTML = '<option value="">Select Device</option>';
+        
+        // Add devices for selected site
+        {% for device in devices %}
+            if ({{ device.site_id }} == siteId) {
+                const option = document.createElement('option');
+                option.value = '{{ device.id }}';
+                option.textContent = '{{ device.device_id }}';
+                deviceSelect.appendChild(option);
+            }
+        {% endfor %}
+    });
+
+    // Form validation
+    document.getElementById('tariffForm').addEventListener('submit', function(e) {
+        const intervals = document.querySelectorAll('.interval-card');
+        let isValid = true;
+        let lastToTime = -1;
+
+        intervals.forEach(interval => {
+            const fromTime = parseInt(interval.querySelector('input[name="interval_from[]"]').value);
+            const toTime = parseInt(interval.querySelector('input[name="interval_to[]"]').value);
+            const amount = parseFloat(interval.querySelector('input[name="interval_amount[]"]').value);
+
+            if (fromTime >= toTime) {
+                alert('"From" time must be less than "To" time in each interval');
+                isValid = false;
+            }
+
+            if (fromTime <= lastToTime) {
+                alert('Intervals must be continuous and non-overlapping');
+                isValid = false;
+            }
+
+            if (amount <= 0) {
+                alert('Amount must be greater than 0');
+                isValid = false;
+            }
+
+            lastToTime = toTime;
+        });
+
+        if (!isValid) {
+            e.preventDefault();
+        }
+    });
+</script>
+{% endblock %} 

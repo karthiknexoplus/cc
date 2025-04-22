@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if device else 'Add' }} Device{% endblock %}
+
+{% block content %}
+<style>
+    .form-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .form-section {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .section-title {
+        color: #333;
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 0.95rem;
+        transition: border-color 0.3s;
+    }
+
+    .form-control:focus {
+        border-color: #1a237e;
+        outline: none;
+    }
+
+    select.form-control {
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 1em;
+    }
+
+    .printer-settings {
+        margin-top: 30px;
+    }
+
+    .printer-settings textarea {
+        font-family: monospace;
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .help-text {
+        color: #666;
+        font-size: 0.85rem;
+        margin-top: 5px;
+    }
+
+    .variables-section {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 15px;
+    }
+
+    .variables-title {
+        color: #333;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+
+    .variable-tag {
+        display: inline-block;
+        background: #e9ecef;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #1a237e;
+        margin: 0 5px 5px 0;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .variable-tag:hover {
+        background: #dee2e6;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-size: 0.95rem;
+        cursor: pointer;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: #1a237e;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #0d1b5a;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<div class="form-container">
+    <div class="form-section">
+        <h2 class="section-title">{{ 'Edit' if device else 'Add' }} Device</h2>
+        <form method="POST">
+            <div class="form-group">
+                <label for="device_id">Device ID</label>
+                <input type="text" class="form-control" id="device_id" name="device_id" 
+                       value="{{ device.device_id if device else '' }}" 
+                       {{ 'readonly' if device else '' }} required>
+            </div>
+
+            <div class="form-group">
+                <label for="site_id">Site</label>
+                <select class="form-control" id="site_id" name="site_id" required>
+                    <option value="">Select Site</option>
+                    {% for site in sites %}
+                        <option value="{{ site.id }}" 
+                                {{ 'selected' if device and device.site_id == site.id else '' }}>
+                            {{ site.name }} - {{ site.location.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="device_type">Device Type</label>
+                <select class="form-control" id="device_type" name="device_type" required>
+                    <option value="">Select Type</option>
+                    <option value="entry_paid" {{ 'selected' if device and device.device_type == 'entry_paid' else '' }}>
+                        Entry Paid
+                    </option>
+                    <option value="exit_paid" {{ 'selected' if device and device.device_type == 'exit_paid' else '' }}>
+                        Exit Paid
+                    </option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="upi_id">UPI ID</label>
+                <input type="text" class="form-control" id="upi_id" name="upi_id" 
+                       value="{{ device.upi_id if device else '' }}" required>
+            </div>
+
+            {% if device %}
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select class="form-control" id="status" name="status" required>
+                    <option value="active" {{ 'selected' if device and device.status == 'active' else '' }}>
+                        Active
+                    </option>
+                    <option value="inactive" {{ 'selected' if device and device.status == 'inactive' else '' }}>
+                        Inactive
+                    </option>
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="printer-settings">
+                <h3 class="section-title">Printer Settings</h3>
+                
+                <div class="form-group">
+                    <label for="printer_header">Receipt Header</label>
+                    <textarea class="form-control" id="printer_header" name="printer_header" 
+                              placeholder="Enter text to appear at the top of receipts">{{ device.printer_header if device else '' }}</textarea>
+                    <div class="help-text">This text will appear at the top of each receipt.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="printer_footer">Receipt Footer</label>
+                    <textarea class="form-control" id="printer_footer" name="printer_footer" 
+                              placeholder="Enter text to appear at the bottom of receipts">{{ device.printer_footer if device else '' }}</textarea>
+                    <div class="help-text">This text will appear at the bottom of each receipt.</div>
+                </div>
+
+                <div class="variables-section">
+                    <div class="variables-title">Available Variables</div>
+                    <div class="variable-tag" onclick="insertVariable('location')">{location}</div>
+                    <div class="variable-tag" onclick="insertVariable('site')">{site}</div>
+                    <div class="variable-tag" onclick="insertVariable('date')">{date}</div>
+                    <div class="variable-tag" onclick="insertVariable('time')">{time}</div>
+                    <div class="variable-tag" onclick="insertVariable('vehicle_no')">{vehicle_no}</div>
+                    <div class="variable-tag" onclick="insertVariable('amount')">{amount}</div>
+                    <div class="variable-tag" onclick="insertVariable('upi_id')">{upi_id}</div>
+                    <div class="help-text">Click on a variable to insert it at the cursor position.</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Save Device</button>
+                <a href="{{ url_for('devices') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function insertVariable(variable) {
+    // Get the currently focused element
+    const activeElement = document.activeElement;
+    const isHeader = activeElement.id === 'printer_header';
+    const isFooter = activeElement.id === 'printer_footer';
+    
+    // Only proceed if we're focused on one of the printer text areas
+    if (!isHeader && !isFooter) {
+        return;
+    }
+    
+    const textarea = activeElement;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const variable = `{${variable}}`;
+    
+    // Insert the variable at the cursor position
+    textarea.value = text.substring(0, start) + variable + text.substring(end);
+    
+    // Put the cursor after the inserted variable
+    const newCursorPos = start + variable.length;
+    textarea.setSelectionRange(newCursorPos, newCursorPos);
+    textarea.focus();
+}
+</script>
+{% endblock %} 
