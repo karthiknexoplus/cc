@@ -125,6 +125,33 @@
             color: #b3b3ff;
             text-decoration: underline;
         }
+
+        .nav-link[data-bs-toggle="collapse"] {
+            position: relative;
+        }
+
+        .nav-link[data-bs-toggle="collapse"] .fa-chevron-down {
+            transition: transform 0.3s ease;
+        }
+
+        .nav-link[data-bs-toggle="collapse"][aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
+        }
+
+        #reportsSubmenu {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+
+        #reportsSubmenu .nav-link {
+            padding: 8px 15px;
+            font-size: 0.9rem;
+        }
+
+        #reportsSubmenu .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -170,9 +197,44 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{{ url_for('reports') }}" class="nav-link" data-route="reports">
-                    <i class="fas fa-chart-bar"></i>
+                <a href="#" class="nav-link" data-bs-toggle="collapse" data-bs-target="#reportsSubmenu">
+                    <i class="fas fa-file-alt"></i>
                     <span>Reports</span>
+                    <i class="fas fa-chevron-down ms-auto"></i>
+                </a>
+                <div class="collapse" id="reportsSubmenu">
+                    <ul class="nav flex-column ms-3">
+                        <li class="nav-item">
+                            <a href="{{ url_for('reports') }}?type=vehicle-in" class="nav-link">
+                                <i class="fas fa-sign-in-alt"></i>
+                                <span>Vehicle In</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('reports') }}?type=vehicle-out" class="nav-link">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Vehicle Out</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('reports') }}?type=overnight" class="nav-link">
+                                <i class="fas fa-moon"></i>
+                                <span>Overnight</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('reports') }}?type=summary" class="nav-link">
+                                <i class="fas fa-chart-pie"></i>
+                                <span>Summary</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('analytics') }}" class="nav-link" data-route="analytics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
                 </a>
             </li>
             <li class="nav-item" style="margin-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 10px;">
@@ -197,6 +259,9 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const currentPath = window.location.pathname;
+            const urlParams = new URLSearchParams(window.location.search);
+            const reportType = urlParams.get('type');
+            
             const navLinks = document.querySelectorAll('.nav-link');
             
             // Define route patterns for each section
@@ -205,9 +270,12 @@
                 'locations': ['/locations', '/locations/add', '/locations/edit/'],
                 'sites': ['/sites', '/sites/add', '/sites/edit/'],
                 'devices': ['/devices', '/devices/add', '/devices/edit/'],
-                'vehicle_categories': ['/vehicle_categories', '/vehicle_categories/add', '/vehicle_categories/edit/']
+                'vehicle_categories': ['/vehicle_categories', '/vehicle_categories/add', '/vehicle_categories/edit/'],
+                'tariffs': ['/tariffs', '/tariffs/add', '/tariffs/edit/'],
+                'reports': ['/reports']
             };
 
+            // Set active state for main menu items
             navLinks.forEach(link => {
                 const route = link.getAttribute('data-route');
                 if (route) {
@@ -215,11 +283,26 @@
                     const isActive = patterns.some(pattern => currentPath.startsWith(pattern));
                     if (isActive) {
                         link.classList.add('active');
-                    } else {
-                        link.classList.remove('active');
+                        // If it's a collapsible menu, expand it
+                        if (link.getAttribute('data-bs-toggle') === 'collapse') {
+                            const target = link.getAttribute('data-bs-target');
+                            const submenu = document.querySelector(target);
+                            if (submenu) {
+                                submenu.classList.add('show');
+                                link.setAttribute('aria-expanded', 'true');
+                            }
+                        }
                     }
                 }
             });
+
+            // Set active state for report submenu items
+            if (reportType) {
+                const reportLink = document.querySelector(`#reportsSubmenu .nav-link[href*="type=${reportType}"]`);
+                if (reportLink) {
+                    reportLink.classList.add('active');
+                }
+            }
         });
     </script>
 </body>

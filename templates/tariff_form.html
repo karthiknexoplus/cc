@@ -310,16 +310,16 @@
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label>From</label>
+                                        <label>From (minutes)</label>
                                         <input type="number" name="interval_from[]" min="0" value="{{ interval.from_time }}" required>
                                     </div>
                                     <div class="form-group">
-                                        <label>To</label>
+                                        <label>To (minutes)</label>
                                         <input type="number" name="interval_to[]" min="0" value="{{ interval.to_time }}" required>
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label>Amount</label>
+                                    <label>Amount (₹)</label>
                                     <input type="number" name="interval_amount[]" min="0" step="0.01" value="{{ interval.amount }}" required>
                                 </div>
                             </div>
@@ -334,31 +334,20 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>From</label>
+                                    <label>From (minutes)</label>
                                     <input type="number" name="interval_from[]" min="0" value="0" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>To</label>
+                                    <label>To (minutes)</label>
                                     <input type="number" name="interval_to[]" min="0" value="60" required>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label>Amount</label>
+                                <label>Amount (₹)</label>
                                 <input type="number" name="interval_amount[]" min="0" step="0.01" value="20" required>
                             </div>
                         </div>
                     {% endif %}
-                </div>
-                <div class="form-group" style="margin-top: 20px;">
-                    <label>Upload Time Intervals from Excel</label>
-                    <div class="excel-upload">
-                        <input type="file" id="excelFile" accept=".xlsx,.xls" style="display: none;">
-                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('excelFile').click()">
-                            <i class="fas fa-file-excel"></i> Choose Excel File
-                        </button>
-                        <span id="fileName" style="margin-left: 10px;"></span>
-                    </div>
-                    <small class="text-muted">Excel file should have columns: From, To, Amount</small>
                 </div>
                 <button type="button" class="add-interval" onclick="addInterval()">
                     <i class="fas fa-plus"></i> Add Interval
@@ -393,16 +382,16 @@
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>From</label>
+                    <label>From (minutes)</label>
                     <input type="number" name="interval_from[]" min="0" required>
                 </div>
                 <div class="form-group">
-                    <label>To</label>
+                    <label>To (minutes)</label>
                     <input type="number" name="interval_to[]" min="0" required>
                 </div>
             </div>
             <div class="form-group">
-                <label>Amount</label>
+                <label>Amount (₹)</label>
                 <input type="number" name="interval_amount[]" min="0" step="0.01" required>
             </div>
         `;
@@ -490,66 +479,6 @@
 
         if (!isValid) {
             e.preventDefault();
-        }
-    });
-
-    // Excel file upload handling
-    document.getElementById('excelFile').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            document.getElementById('fileName').textContent = file.name;
-            
-            const formData = new FormData();
-            formData.append('excel_file', file);
-            
-            fetch('/api/tariffs/upload-intervals', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Clear existing intervals
-                    const timeIntervals = document.getElementById('timeIntervals');
-                    timeIntervals.innerHTML = '';
-                    
-                    // Add new intervals from Excel
-                    data.intervals.forEach((interval, index) => {
-                        const intervalCard = document.createElement('div');
-                        intervalCard.className = 'interval-card';
-                        intervalCard.innerHTML = `
-                            <div class="interval-header">
-                                <span class="interval-title">Interval ${index + 1}</span>
-                                <span class="remove-interval" onclick="removeInterval(this)">
-                                    <i class="fas fa-trash"></i>
-                                </span>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>From</label>
-                                    <input type="number" name="interval_from[]" min="0" value="${interval.from_time}" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>To</label>
-                                    <input type="number" name="interval_to[]" min="0" value="${interval.to_time}" required>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Amount</label>
-                                <input type="number" name="interval_amount[]" min="0" step="0.01" value="${interval.amount}" required>
-                            </div>
-                        `;
-                        timeIntervals.appendChild(intervalCard);
-                    });
-                    
-                    flash('Time intervals imported successfully!', 'success');
-                } else {
-                    flash(data.error, 'error');
-                }
-            })
-            .catch(error => {
-                flash('Error processing Excel file: ' + error.message, 'error');
-            });
         }
     });
 </script>

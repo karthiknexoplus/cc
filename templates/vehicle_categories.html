@@ -150,13 +150,28 @@
     }
 
     .status-active {
-        background: #d4edda;
-        color: #155724;
+        color: #28a745;
+        font-weight: 500;
     }
 
     .status-inactive {
-        background: #f8d7da;
-        color: #721c24;
+        color: #dc3545;
+        font-weight: 500;
+    }
+
+    .status-pending {
+        color: #ffc107;
+        font-weight: 500;
+    }
+
+    .status-1 {
+        color: #28a745;
+        font-weight: 500;
+    }
+
+    .status-0 {
+        color: #dc3545;
+        font-weight: 500;
     }
 
     .category-actions {
@@ -233,6 +248,10 @@
                         <p><strong>Location:</strong> <span>{{ category.location.name }}</span></p>
                         <p><strong>Site:</strong> <span>{{ category.site.name }}</span></p>
                         <p><strong>Device:</strong> <span>{{ category.device.device_id }}</span></p>
+                        {% if category.overnight_vehicles %}
+                            <p><strong>Overnight Amount:</strong> <span>₹{{ "%.2f"|format(category.overnight_vehicles[0].amount) }}</span></p>
+                            <p><strong>Overnight Status:</strong> <span class="status-{{ category.overnight_vehicles[0].status }}">{{ category.overnight_vehicles[0].status|title }}</span></p>
+                        {% endif %}
                     </div>
                     <div class="amount-info">
                         <p>₹{{ "%.2f"|format(category.amount) }}</p>

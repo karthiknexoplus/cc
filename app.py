@@ -6,10 +6,9 @@ import logging
 import random
 import string
 from flask_migrate import Migrate
-from datetime import datetime
+from datetime import datetime, timedelta
 import io
 import csv
-import pandas as pd  # Add pandas for Excel handling
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -70,6 +69,8 @@ class Device(db.Model):
     status = db.Column(db.String(20), default='active')
     printer_header = db.Column(db.Text, default='')
     printer_footer = db.Column(db.Text, default='')
+    vehicle_in_start_time = db.Column(db.String(5), default='00:00')  # Format: HH:MM
+    vehicle_in_end_time = db.Column(db.String(5), default='23:59')    # Format: HH:MM
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
@@ -152,6 +153,34 @@ class VehicleEntry(db.Model):
     payment_reference = db.Column(db.String(100))  # UPI reference, card number, etc.
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+
+# OvernightVehicle model
+class OvernightVehicle(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    vehicle_category_id = db.Column(db.Integer, db.ForeignKey('vehicle_category.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), default='active')
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+
+    vehicle_category = db.relationship('VehicleCategory', backref='overnight_vehicles')
+
+# OvernightPass model
+class OvernightPass(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    validity_days = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), default='active')
+    vehicle_category_id = db.Column(db.Integer, db.ForeignKey('vehicle_category.id'), nullable=False)
+    transaction_id = db.Column(db.String(50), unique=True, nullable=False)
+    device_id = db.Column(db.String(3), nullable=False)
+    location = db.Column(db.String(100), nullable=False)
+    site = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+
+    vehicle_category = db.relationship('VehicleCategory', backref='overnight_passes')
 
 # Create database tables
 with app.app_context():
@@ -478,6 +507,8 @@ def add_device():
             upi_id = request.form.get('upi_id')
             printer_header = request.form.get('printer_header', '')
             printer_footer = request.form.get('printer_footer', '')
+            vehicle_in_start_time = request.form.get('vehicleInStartTime', '00:00')
+            vehicle_in_end_time = request.form.get('vehicleInEndTime', '23:59')
             
             # Generate a unique 3-digit device ID
             while True:
@@ -491,7 +522,9 @@ def add_device():
                 device_type=device_type,
                 upi_id=upi_id,
                 printer_header=printer_header,
-                printer_footer=printer_footer
+                printer_footer=printer_footer,
+                vehicle_in_start_time=vehicle_in_start_time,
+                vehicle_in_end_time=vehicle_in_end_time
             )
             
             db.session.add(new_device)
@@ -520,6 +553,8 @@ def edit_device(id):
             device.status = request.form.get('status')
             device.printer_header = request.form.get('printer_header', '')
             device.printer_footer = request.form.get('printer_footer', '')
+            device.vehicle_in_start_time = request.form.get('vehicleInStartTime', '00:00')
+            device.vehicle_in_end_time = request.form.get('vehicleInEndTime', '23:59')
             
             db.session.commit()
             flash('Device updated successfully!', 'success')
@@ -572,6 +607,7 @@ def add_vehicle_category():
             location_id = request.form.get('location_id')
             site_id = request.form.get('site_id')
             device_id = request.form.get('device_id')
+            status = request.form.get('status')
             
             new_category = VehicleCategory(
                 name=name,
@@ -580,10 +616,25 @@ def add_vehicle_category():
                 amount=amount,
                 location_id=location_id,
                 site_id=site_id,
-                device_id=device_id
+                device_id=device_id,
+                status=status
             )
             
             db.session.add(new_category)
+            db.session.flush()  # Get the category ID
+            
+            # Add overnight vehicle settings if provided
+            overnight_amount = request.form.get('overnight_amount')
+            overnight_status = request.form.get('overnight_status')
+            
+            if overnight_amount and overnight_status:
+                overnight_vehicle = OvernightVehicle(
+                    vehicle_category_id=new_category.id,
+                    amount=float(overnight_amount),
+                    status=overnight_status
+                )
+                db.session.add(overnight_vehicle)
+            
             db.session.commit()
             flash('Vehicle category added successfully!', 'success')
             return redirect(url_for('vehicle_categories'))
@@ -606,6 +657,7 @@ def edit_vehicle_category(id):
     
     try:
         category = VehicleCategory.query.get_or_404(id)
+        overnight_vehicle = OvernightVehicle.query.filter_by(vehicle_category_id=id).first()
         
         if request.method == 'POST':
             category.name = request.form.get('name')
@@ -617,6 +669,22 @@ def edit_vehicle_category(id):
             category.device_id = request.form.get('device_id')
             category.status = request.form.get('status')
             
+            # Update or create overnight vehicle settings
+            overnight_amount = request.form.get('overnight_amount')
+            overnight_status = request.form.get('overnight_status')
+            
+            if overnight_amount and overnight_status:
+                if overnight_vehicle:
+                    overnight_vehicle.amount = float(overnight_amount)
+                    overnight_vehicle.status = overnight_status
+                else:
+                    overnight_vehicle = OvernightVehicle(
+                        vehicle_category_id=category.id,
+                        amount=float(overnight_amount),
+                        status=overnight_status
+                    )
+                    db.session.add(overnight_vehicle)
+            
             db.session.commit()
             flash('Vehicle category updated successfully!', 'success')
             return redirect(url_for('vehicle_categories'))
@@ -626,6 +694,7 @@ def edit_vehicle_category(id):
         devices = Device.query.all()
         return render_template('vehicle_category_form.html', 
                              category=category,
+                             overnight_vehicle=overnight_vehicle,
                              locations=locations,
                              sites=sites,
                              devices=devices)
@@ -807,21 +876,21 @@ def get_device_config(device_id):
             # Get time intervals for each tariff
             intervals = TariffInterval.query.filter_by(tariff_id=tariff.id).all()
             intervals_data = [{
-                'start_time': interval.from_time,
-                'end_time': interval.to_time,
+                'startTime': interval.from_time,
+                'endTime': interval.to_time,
                 'amount': interval.amount
             } for interval in intervals]
 
             tariffs_data.append({
                 'id': tariff.id,
                 'name': tariff.name,
-                'location_id': tariff.location_id,
-                'site_id': tariff.site_id,
-                'device_id': tariff.device_id,
-                'vehicle_category_id': tariff.vehicle_category_id,
-                'grace_time': tariff.grace_time,
+                'deviceId': tariff.device_id,
+                'locationId': tariff.location_id,
+                'siteId': tariff.site_id,
+                'vehicleCategoryId': tariff.vehicle_category_id,
+                'graceTime': tariff.grace_time,
                 'status': tariff.status,
-                'time_intervals': intervals_data
+                'timeIntervals': intervals_data
             })
 
         # Get all monthly passes for this location
@@ -829,22 +898,39 @@ def get_device_config(device_id):
         passes_data = [{
             'id': cat.id,
             'name': cat.name,
-            'vehicle_category_id': cat.id,
             'amount': cat.amount,
-            'validity_days': 30,  # Assuming a default validity of 30 days
-            'status': cat.status
+            'validityDays': 30,  # Assuming a default validity of 30 days
+            'status': cat.status,
+            'vehicleCategoryId': cat.id,
+            'transactionId': f"TXN{random.randint(100000000, 999999999)}"  # Generate a random transaction ID
         } for cat in monthly_passes]
+
+        # Get all overnight vehicles for this location
+        overnight_vehicles = OvernightVehicle.query.join(VehicleCategory).filter(
+            VehicleCategory.location_id == location.id
+        ).all()
+        overnight_data = [{
+            'id': ov.id,
+            'vehicleCategoryId': ov.vehicle_category_id,
+            'amount': ov.amount,
+            'status': ov.status
+        } for ov in overnight_vehicles]
 
         # Prepare response data
         response_data = {
             'device': {
                 'id': device.id,
-                'device_id': device.device_id,
-                'device_type': device.device_type,
-                'upi_id': device.upi_id,
+                'deviceId': device.device_id,
+                'deviceType': device.device_type,
                 'status': device.status,
-                'printer_header': device.printer_header,
-                'printer_footer': device.printer_footer
+                'upiId': device.upi_id,
+                'printerHeader': device.printer_header,
+                'printerFooter': device.printer_footer
+            },
+            'location': {
+                'id': location.id,
+                'name': location.name,
+                'status': location.status
             },
             'site': {
                 'id': site.id,
@@ -852,14 +938,12 @@ def get_device_config(device_id):
                 'description': site.description,
                 'status': site.status
             },
-            'location': {
-                'id': location.id,
-                'name': location.name,
-                'status': location.status
-            },
-            'vehicle_categories': categories_data,
+            'vehicleCategories': categories_data,
             'tariffs': tariffs_data,
-            'monthly_passes': passes_data
+            'monthlyPasses': passes_data,
+            'overnightVehicles': overnight_data,
+            'vehicleInStartTime': device.vehicle_in_start_time,
+            'vehicleInEndTime': device.vehicle_in_end_time
         }
 
         return jsonify(response_data)
@@ -919,8 +1003,9 @@ def receive_transaction():
 
 @app.route('/reports')
 def reports():
-    locations = Location.query.all()
-    return render_template('reports.html', locations=locations)
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('reports.html')
 
 @app.route('/api/reports')
 def get_reports():
@@ -1542,68 +1627,443 @@ def vehicle_reports():
             'message': f'Error generating report: {str(e)}'
         }), 500
 
-@app.route('/api/tariffs/upload-intervals', methods=['POST'])
-def upload_tariff_intervals():
+@app.route('/analytics')
+def analytics():
+    return render_template('analytics.html')
+
+@app.route('/api/analytics/summary')
+def analytics_summary():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Convert string dates to datetime objects
+    start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    
+    # Get transactions within date range
+    transactions = Transaction.query.filter(
+        Transaction.entry_time >= start_date,
+        Transaction.entry_time < end_date
+    ).all()
+    
+    # Calculate summary statistics
+    total_revenue = sum(t.amount_paid or 0 for t in transactions)
+    total_vehicles = len(transactions)
+    
+    # Calculate overnight vehicles
+    overnight_vehicles = sum(1 for t in transactions if t.exit_time and (t.exit_time - t.entry_time).total_seconds() > 12 * 3600)
+    
+    # Calculate average stay duration
+    stay_durations = [(t.exit_time - t.entry_time).total_seconds() / 3600 for t in transactions if t.exit_time]
+    avg_stay_duration = sum(stay_durations) / len(stay_durations) if stay_durations else 0
+    
+    return jsonify({
+        'total_revenue': total_revenue,
+        'total_vehicles': total_vehicles,
+        'overnight_vehicles': overnight_vehicles,
+        'avg_stay_duration': avg_stay_duration
+    })
+
+@app.route('/api/analytics/vehicle-in')
+def analytics_vehicle_in():
     try:
-        if 'excel_file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
-
-        file = request.files['excel_file']
-        if not file.filename.endswith(('.xlsx', '.xls')):
-            return jsonify({'success': False, 'error': 'Invalid file format. Please upload an Excel file'}), 400
-
-        # Read Excel file
-        df = pd.read_excel(file)
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
         
-        # Validate required columns
-        required_columns = ['From', 'To', 'Amount']
-        if not all(col in df.columns for col in required_columns):
-            return jsonify({
-                'success': False, 
-                'error': 'Excel file must contain columns: From, To, Amount'
-            }), 400
-
-        # Convert to list of intervals
-        intervals = []
-        for _, row in df.iterrows():
-            intervals.append({
-                'from_time': int(row['From']),
-                'to_time': int(row['To']),
-                'amount': float(row['Amount'])
-            })
-
-        # Validate intervals
-        last_to_time = -1
-        for interval in intervals:
-            if interval['from_time'] >= interval['to_time']:
-                return jsonify({
-                    'success': False,
-                    'error': f'Invalid interval: From time ({interval["from_time"]}) must be less than To time ({interval["to_time"]})'
-                }), 400
+        logger.info(f"Received date range: start_date={start_date}, end_date={end_date}")
+        
+        # Convert string dates to datetime objects
+        if start_date:
+            try:
+                # Try parsing as date-only format first
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            except ValueError:
+                try:
+                    # Try parsing as ISO format with timezone
+                    start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                except ValueError:
+                    # Try parsing as ISO format with milliseconds
+                    start_date = datetime.strptime(start_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+            logger.info(f"Parsed start_date: {start_date}")
             
-            if interval['from_time'] <= last_to_time:
-                return jsonify({
-                    'success': False,
-                    'error': 'Intervals must be continuous and non-overlapping'
-                }), 400
-            
-            if interval['amount'] <= 0:
-                return jsonify({
-                    'success': False,
-                    'error': f'Invalid amount: {interval["amount"]} must be greater than 0'
-                }), 400
-            
-            last_to_time = interval['to_time']
-
+        if end_date:
+            try:
+                # Try parsing as date-only format first
+                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            except ValueError:
+                try:
+                    # Try parsing as ISO format with timezone
+                    end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                except ValueError:
+                    # Try parsing as ISO format with milliseconds
+                    end_date = datetime.strptime(end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+            logger.info(f"Parsed end_date: {end_date}")
+            # Add one day to include the entire end date
+            end_date = end_date + timedelta(days=1)
+            logger.info(f"Adjusted end_date: {end_date}")
+        
+        # Get vehicle entries within date range
+        entries = VehicleEntry.query.filter(
+            VehicleEntry.entry_time >= start_date,
+            VehicleEntry.entry_time < end_date
+        ).all()
+        
+        # Format data for response
+        data = [{
+            'vehicle_number': entry.vehicle_number,
+            'category': entry.vehicle_type,
+            'entry_time': entry.entry_time.isoformat(),
+            'location': entry.transaction_id  # You might want to join with location table to get actual location name
+        } for entry in entries]
+        
+        return jsonify(data)
+        
+    except ValueError as e:
+        logger.error(f"ValueError in analytics_vehicle_in: {str(e)}")
         return jsonify({
-            'success': True,
-            'intervals': intervals
-        })
-
+            'status': 'error',
+            'message': f'Invalid date format: {str(e)}'
+        }), 400
     except Exception as e:
+        logger.error(f"Exception in analytics_vehicle_in: {str(e)}")
         return jsonify({
-            'success': False,
-            'error': f'Error processing Excel file: {str(e)}'
+            'status': 'error',
+            'message': f'Error fetching vehicle entries: {str(e)}'
+        }), 500
+
+@app.route('/api/analytics/vehicle-out')
+def analytics_vehicle_out():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Convert string dates to datetime objects
+    start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    
+    # Get vehicle exits within date range
+    exits = VehicleEntry.query.filter(
+        VehicleEntry.exit_time >= start_date,
+        VehicleEntry.exit_time < end_date
+    ).all()
+    
+    # Format data for response
+    data = [{
+        'vehicle_number': exit.vehicle_number,
+        'category': exit.vehicle_type,
+        'exit_time': exit.exit_time.isoformat(),
+        'amount': exit.amount_paid or 0
+    } for exit in exits]
+    
+    return jsonify(data)
+
+@app.route('/api/analytics/overnight')
+def analytics_overnight():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Convert string dates to datetime objects
+    start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    
+    # Get overnight vehicles within date range
+    overnight_vehicles = VehicleEntry.query.filter(
+        VehicleEntry.entry_time >= start_date,
+        VehicleEntry.entry_time < end_date,
+        VehicleEntry.exit_time != None,
+        db.func.extract('epoch', VehicleEntry.exit_time - VehicleEntry.entry_time) > 12 * 3600
+    ).all()
+    
+    # Format data for response
+    data = [{
+        'vehicle_number': vehicle.vehicle_number,
+        'category': vehicle.vehicle_type,
+        'entry_time': vehicle.entry_time.isoformat(),
+        'exit_time': vehicle.exit_time.isoformat(),
+        'amount': vehicle.amount_paid or 0
+    } for vehicle in overnight_vehicles]
+    
+    return jsonify(data)
+
+@app.route('/api/analytics/revenue-by-category')
+def analytics_revenue_by_category():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Convert string dates to datetime objects
+    start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    
+    # Get transactions within date range
+    transactions = Transaction.query.filter(
+        Transaction.entry_time >= start_date,
+        Transaction.entry_time < end_date
+    ).all()
+    
+    # Group by vehicle category and calculate total revenue
+    revenue_by_category = {}
+    for transaction in transactions:
+        category = transaction.vehicle_category_id
+        amount = transaction.amount_paid or 0
+        revenue_by_category[category] = revenue_by_category.get(category, 0) + amount
+    
+    # Format data for chart
+    labels = list(revenue_by_category.keys())
+    values = list(revenue_by_category.values())
+    
+    return jsonify({
+        'labels': labels,
+        'values': values
+    })
+
+@app.route('/api/analytics/vehicle-count-by-category')
+def analytics_vehicle_count_by_category():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Convert string dates to datetime objects
+    start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    
+    # Get transactions within date range
+    transactions = Transaction.query.filter(
+        Transaction.entry_time >= start_date,
+        Transaction.entry_time < end_date
+    ).all()
+    
+    # Group by vehicle category and count vehicles
+    count_by_category = {}
+    for transaction in transactions:
+        category = transaction.vehicle_category_id
+        count_by_category[category] = count_by_category.get(category, 0) + 1
+    
+    # Format data for chart
+    labels = list(count_by_category.keys())
+    values = list(count_by_category.values())
+    
+    return jsonify({
+        'labels': labels,
+        'values': values
+    })
+
+@app.route('/api/overnight-passes', methods=['POST'])
+def create_overnight_pass():
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['id', 'name', 'amount', 'validityDays', 'status', 'vehicleCategoryId', 
+                         'transactionId', 'deviceId', 'location', 'site', 'createdAt']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Missing required field: {field}'
+                }), 400
+
+        # Check if transaction ID already exists
+        existing_pass = OvernightPass.query.filter_by(transaction_id=data['transactionId']).first()
+        if existing_pass:
+            return jsonify({
+                'status': 'error',
+                'message': 'Transaction ID already exists'
+            }), 409
+
+        # Check if ID already exists
+        existing_id = OvernightPass.query.filter_by(id=data['id']).first()
+        if existing_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'ID already exists'
+            }), 409
+
+        # Convert createdAt to datetime
+        created_at = datetime.fromisoformat(data['createdAt'].replace('Z', '+00:00'))
+
+        # Create new overnight pass
+        new_pass = OvernightPass(
+            id=data['id'],  # Using the timestamp-based ID
+            name=data['name'],
+            amount=float(data['amount']),  # Ensure amount is float
+            validity_days=int(data['validityDays']),  # Ensure validity_days is integer
+            status=data['status'],
+            vehicle_category_id=int(data['vehicleCategoryId']),  # Ensure vehicle_category_id is integer
+            transaction_id=data['transactionId'],
+            device_id=data['deviceId'],
+            location=data['location'],
+            site=data['site'],
+            created_at=created_at
+        )
+
+        db.session.add(new_pass)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Overnight pass created successfully',
+            'data': {
+                'id': new_pass.id,
+                'name': new_pass.name,
+                'amount': new_pass.amount,
+                'validityDays': new_pass.validity_days,
+                'status': new_pass.status,
+                'vehicleCategoryId': new_pass.vehicle_category_id,
+                'transactionId': new_pass.transaction_id,
+                'deviceId': new_pass.device_id,
+                'location': new_pass.location,
+                'site': new_pass.site,
+                'createdAt': new_pass.created_at.isoformat()
+            }
+        }), 201
+
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid data format: {str(e)}'
+        }), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error creating overnight pass: {str(e)}'
+        }), 500
+
+@app.route('/api/analytics/overnight-passes')
+def analytics_overnight_passes():
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        logger.info(f"Received date range: start_date={start_date}, end_date={end_date}")
+        
+        # Convert string dates to datetime objects
+        if start_date:
+            try:
+                # Try parsing as date-only format first
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            except ValueError:
+                try:
+                    # Try parsing as ISO format with timezone
+                    start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                except ValueError:
+                    # Try parsing as ISO format with milliseconds
+                    start_date = datetime.strptime(start_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+            logger.info(f"Parsed start_date: {start_date}")
+            
+        if end_date:
+            try:
+                # Try parsing as date-only format first
+                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            except ValueError:
+                try:
+                    # Try parsing as ISO format with timezone
+                    end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                except ValueError:
+                    # Try parsing as ISO format with milliseconds
+                    end_date = datetime.strptime(end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+            logger.info(f"Parsed end_date: {end_date}")
+            # Add one day to include the entire end date
+            end_date = end_date + timedelta(days=1)
+            logger.info(f"Adjusted end_date: {end_date}")
+        
+        # Get all overnight passes first to check total count
+        all_passes = OvernightPass.query.all()
+        logger.info(f"Total passes in database: {len(all_passes)}")
+        
+        # Calculate time periods
+        now = datetime.now()
+        today_start = datetime(now.year, now.month, now.day)
+        yesterday_start = today_start - timedelta(days=1)
+        week_start = today_start - timedelta(days=7)
+        month_start = today_start - timedelta(days=30)
+        
+        # Calculate summary statistics for different time periods
+        today_passes = [p for p in all_passes if p.created_at >= today_start]
+        yesterday_passes = [p for p in all_passes if yesterday_start <= p.created_at < today_start]
+        week_passes = [p for p in all_passes if p.created_at >= week_start]
+        month_passes = [p for p in all_passes if p.created_at >= month_start]
+        
+        # Calculate summary data
+        summary = {
+            'today': {
+                'count': len(today_passes),
+                'amount': sum(p.amount for p in today_passes)
+            },
+            'yesterday': {
+                'count': len(yesterday_passes),
+                'amount': sum(p.amount for p in yesterday_passes)
+            },
+            'week': {
+                'count': len(week_passes),
+                'amount': sum(p.amount for p in week_passes)
+            },
+            'month': {
+                'count': len(month_passes),
+                'amount': sum(p.amount for p in month_passes)
+            },
+            'total_passes': len(all_passes),
+            'total_revenue': sum(p.amount for p in all_passes),
+            'active_passes': sum(1 for p in all_passes if p.status == 'active')
+        }
+        
+        # Base query for filtered passes
+        query = OvernightPass.query
+        
+        # Apply date filters if provided
+        if start_date:
+            query = query.filter(OvernightPass.created_at >= start_date)
+        if end_date:
+            query = query.filter(OvernightPass.created_at < end_date)
+        
+        # Get filtered passes
+        passes = query.all()
+        logger.info(f"Found {len(passes)} passes in the date range")
+        
+        # Group by vehicle category
+        category_stats = {}
+        for pass_item in passes:
+            category = pass_item.vehicle_category.name if pass_item.vehicle_category else 'Unknown'
+            if category not in category_stats:
+                category_stats[category] = {
+                    'count': 0,
+                    'revenue': 0
+                }
+            category_stats[category]['count'] += 1
+            category_stats[category]['revenue'] += pass_item.amount
+        
+        # Format data for response
+        data = {
+            'summary': summary,
+            'category_stats': category_stats,
+            'passes': [{
+                'id': pass_item.id,
+                'name': pass_item.name,
+                'amount': pass_item.amount,
+                'validity_days': pass_item.validity_days,
+                'status': pass_item.status,
+                'vehicle_category': pass_item.vehicle_category.name if pass_item.vehicle_category else 'Unknown',
+                'transaction_id': pass_item.transaction_id,
+                'device_id': pass_item.device_id,
+                'location': pass_item.location,
+                'site': pass_item.site,
+                'created_at': pass_item.created_at.isoformat()
+            } for pass_item in passes]
+        }
+        
+        logger.info("Sending response with data")
+        return jsonify(data)
+        
+    except ValueError as e:
+        logger.error(f"ValueError in analytics_overnight_passes: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid date format: {str(e)}'
+        }), 400
+    except Exception as e:
+        logger.error(f"Exception in analytics_overnight_passes: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error fetching overnight passes: {str(e)}'
         }), 500
 
 if __name__ == '__main__':

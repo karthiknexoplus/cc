@@ -128,59 +128,6 @@
 
         <!-- Overnight Report -->
         <div id="overnight" class="report-section" style="display: none;">
-            <!-- Summary Cards -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="summary-card" style="background: linear-gradient(45deg, #2196F3, #1976D2);">
-                        <div class="icon">
-                            <i class="fas fa-calendar-day"></i>
-                        </div>
-                        <div class="content">
-                            <h3><span id="todayCount">0</span></h3>
-                            <p>Today's Passes</p>
-                            <h4>₹<span id="todayAmount">0</span></h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="summary-card" style="background: linear-gradient(45deg, #4CAF50, #388E3C);">
-                        <div class="icon">
-                            <i class="fas fa-calendar-week"></i>
-                        </div>
-                        <div class="content">
-                            <h3><span id="yesterdayCount">0</span></h3>
-                            <p>Yesterday's Passes</p>
-                            <h4>₹<span id="yesterdayAmount">0</span></h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="summary-card" style="background: linear-gradient(45deg, #FF9800, #F57C00);">
-                        <div class="icon">
-                            <i class="fas fa-calendar-alt"></i>
-                        </div>
-                        <div class="content">
-                            <h3><span id="weekCount">0</span></h3>
-                            <p>Last 7 Days</p>
-                            <h4>₹<span id="weekAmount">0</span></h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="summary-card" style="background: linear-gradient(45deg, #9C27B0, #7B1FA2);">
-                        <div class="icon">
-                            <i class="fas fa-calendar"></i>
-                        </div>
-                        <div class="content">
-                            <h3><span id="monthCount">0</span></h3>
-                            <p>Last 30 Days</p>
-                            <h4>₹<span id="monthAmount">0</span></h4>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Overnight Passes Table -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
@@ -207,7 +154,6 @@
                                     <th>Validity Days</th>
                                     <th>Location</th>
                                     <th>Site</th>
-                                    <th>Device ID</th>
                                     <th>Created At</th>
                                     <th>Status</th>
                                 </tr>
@@ -359,18 +305,13 @@
     }
 
     .summary-card {
-        border-radius: 15px;
-        padding: 15px;
+        background: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        color: white;
-        transition: transform 0.3s ease;
-        height: 150px;
-        text-align: center;
+        gap: 1rem;
+        transition: transform 0.2s;
     }
 
     .summary-card:hover {
@@ -378,54 +319,51 @@
     }
 
     .summary-card .icon {
-        font-size: 2rem;
-        margin-bottom: 10px;
-        opacity: 0.8;
-        width: 50px;
-        height: 50px;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
+        color: white;
+        font-size: 1.5rem;
     }
 
     .summary-card .content {
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
     }
 
     .summary-card h3 {
-        font-size: 1.8rem;
         margin: 0;
-        font-weight: bold;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-    }
-
-    .summary-card h4 {
-        font-size: 1.3rem;
-        margin: 5px 0 0 0;
-        font-weight: bold;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2c3e50;
     }
 
     .summary-card p {
-        margin: 5px 0;
-        opacity: 0.9;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.875rem;
     }
 </style>
 
 <script>
     let currentReportType = 'vehicle-in';
 
+    // Initialize date-time range with current day
+    document.addEventListener('DOMContentLoaded', function() {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        
+        document.getElementById('startDateTime').value = startOfDay.toISOString().slice(0, 16);
+        document.getElementById('endDateTime').value = endOfDay.toISOString().slice(0, 16);
+        
+        // Show vehicle in report by default
+        showReport('vehicle-in');
+    });
+
     function showReport(reportType) {
-        console.log('Switching to report type:', reportType);
         currentReportType = reportType;
         
         // Update active button
@@ -440,116 +378,54 @@
         });
 
         // Show selected report section
-        const selectedSection = document.getElementById(reportType);
-        if (selectedSection) {
-            selectedSection.style.display = 'block';
-            console.log('Showing section:', reportType);
-            
-            // Generate report for the selected type
-            console.log('Generating report for type:', reportType);
-            generateReport();
-        } else {
-            console.error('Report section not found:', reportType);
-        }
-    }
+        document.getElementById(reportType).style.display = 'block';
 
-    // Initialize date-time range with current day
-    document.addEventListener('DOMContentLoaded', function() {
-        // Set date range to include all passes (2024-04-23)
-        const startDate = new Date('2024-04-01');
-        const endDate = new Date('2024-12-31');
-        
-        document.getElementById('startDateTime').value = startDate.toISOString().slice(0, 16);
-        document.getElementById('endDateTime').value = endDate.toISOString().slice(0, 16);
-        
-        // Show vehicle in report by default
-        showReport('vehicle-in');
-    });
+        // Generate report for the selected type
+        generateReport();
+    }
 
     function generateReport() {
         const startDateTime = document.getElementById('startDateTime').value;
         const endDateTime = document.getElementById('endDateTime').value;
         
-        // Convert to date-only format (YYYY-MM-DD)
-        const startDate = new Date(startDateTime).toISOString().split('T')[0];
-        const endDate = new Date(endDateTime).toISOString().split('T')[0];
-        
-        console.log('Generating report with date range:', { startDate, endDate });
-        console.log('Current report type:', currentReportType);
-        
         switch(currentReportType) {
             case 'vehicle-in':
-                console.log('Fetching vehicle-in data...');
-                fetch(`/api/analytics/vehicle-in?start_date=${startDate}&end_date=${endDate}`)
-                    .then(response => {
-                        console.log('Vehicle-in response status:', response.status);
-                        return response.json();
-                    })
+                fetch(`/api/analytics/vehicle-in?start_date=${startDateTime}&end_date=${endDateTime}`)
+                    .then(response => response.json())
                     .then(data => {
-                        console.log('Vehicle-in data:', data);
                         updateVehicleInTable(data);
                         document.getElementById('vehicleInCount').textContent = `${data.length} records`;
-                    })
-                    .catch(error => {
-                        console.error('Error fetching vehicle-in data:', error);
                     });
                 break;
                 
             case 'vehicle-out':
-                console.log('Fetching vehicle-out data...');
-                fetch(`/api/analytics/vehicle-out?start_date=${startDate}&end_date=${endDate}`)
-                    .then(response => {
-                        console.log('Vehicle-out response status:', response.status);
-                        return response.json();
-                    })
+                fetch(`/api/analytics/vehicle-out?start_date=${startDateTime}&end_date=${endDateTime}`)
+                    .then(response => response.json())
                     .then(data => {
-                        console.log('Vehicle-out data:', data);
                         updateVehicleOutTable(data);
                         document.getElementById('vehicleOutCount').textContent = `${data.length} records`;
-                    })
-                    .catch(error => {
-                        console.error('Error fetching vehicle-out data:', error);
                     });
                 break;
                 
             case 'overnight':
-                console.log('Fetching overnight passes data...');
-                fetch(`/api/analytics/overnight-passes?start_date=${startDate}&end_date=${endDate}`)
-                    .then(response => {
-                        console.log('Overnight passes response status:', response.status);
-                        return response.json();
-                    })
+                fetch(`/api/analytics/overnight-passes?start_date=${startDateTime}&end_date=${endDateTime}`)
+                    .then(response => response.json())
                     .then(data => {
-                        console.log('Overnight passes data:', data);
                         if (data.passes) {
                             updateOvernightTable(data.passes);
-                            updateOvernightSummary(data.summary);
                             document.getElementById('overnightCount').textContent = `${data.summary.total_passes} records`;
-                        } else {
-                            console.error('No passes data in response:', data);
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching overnight passes:', error);
                     });
                 break;
                 
             case 'summary':
-                console.log('Fetching summary data...');
-                fetch(`/api/analytics/summary?start_date=${startDate}&end_date=${endDate}`)
-                    .then(response => {
-                        console.log('Summary response status:', response.status);
-                        return response.json();
-                    })
+                fetch(`/api/analytics/summary?start_date=${startDateTime}&end_date=${endDateTime}`)
+                    .then(response => response.json())
                     .then(data => {
-                        console.log('Summary data:', data);
                         document.getElementById('totalRevenue').textContent = data.total_revenue.toFixed(2);
                         document.getElementById('totalVehicles').textContent = data.total_vehicles;
                         document.getElementById('overnightVehicles').textContent = data.overnight_vehicles;
                         document.getElementById('avgStayDuration').textContent = data.avg_stay_duration.toFixed(1);
-                    })
-                    .catch(error => {
-                        console.error('Error fetching summary data:', error);
                     });
                 break;
         }
@@ -602,30 +478,11 @@
                     <td>${pass.validity_days} days</td>
                     <td>${pass.location}</td>
                     <td>${pass.site}</td>
-                    <td>${pass.device_id}</td>
                     <td>${createdAt}</td>
                     <td><span class="${statusClass}">${pass.status}</span></td>
                 </tr>
             `;
         });
-    }
-
-    function updateOvernightSummary(data) {
-        // Update today's count and amount
-        document.getElementById('todayCount').textContent = data.today?.count || 0;
-        document.getElementById('todayAmount').textContent = (data.today?.amount || 0).toFixed(2);
-
-        // Update yesterday's count and amount
-        document.getElementById('yesterdayCount').textContent = data.yesterday?.count || 0;
-        document.getElementById('yesterdayAmount').textContent = (data.yesterday?.amount || 0).toFixed(2);
-
-        // Update last 7 days count and amount
-        document.getElementById('weekCount').textContent = data.week?.count || 0;
-        document.getElementById('weekAmount').textContent = (data.week?.amount || 0).toFixed(2);
-
-        // Update last 30 days count and amount
-        document.getElementById('monthCount').textContent = data.month?.count || 0;
-        document.getElementById('monthAmount').textContent = (data.month?.amount || 0).toFixed(2);
     }
 
     function exportReport(reportType) {

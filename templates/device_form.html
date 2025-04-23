@@ -196,6 +196,17 @@
             </div>
             {% endif %}
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="vehicleInStartTime">Vehicle In Start Time</label>
+                    <input type="time" id="vehicleInStartTime" name="vehicleInStartTime" value="{{ device.vehicle_in_start_time if device else '00:00' }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="vehicleInEndTime">Vehicle In End Time</label>
+                    <input type="time" id="vehicleInEndTime" name="vehicleInEndTime" value="{{ device.vehicle_in_end_time if device else '23:59' }}" required>
+                </div>
+            </div>
+
             <div class="printer-settings">
                 <h3 class="section-title">Printer Settings</h3>
                 

@@ -256,6 +256,24 @@
                 </select>
             </div>
 
+            <div class="form-group">
+                <h3>Overnight Vehicle Settings</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="overnight_amount">Overnight Amount (₹)</label>
+                        <input type="number" id="overnight_amount" name="overnight_amount" step="0.01" value="{{ overnight_vehicle.amount if overnight_vehicle else '' }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="overnight_status">Overnight Status</label>
+                        <select id="overnight_status" name="overnight_status">
+                            <option value="active" {% if overnight_vehicle and overnight_vehicle.status == 'active' %}selected{% endif %}>Active</option>
+                            <option value="inactive" {% if overnight_vehicle and overnight_vehicle.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <div class="form-actions">
                 <a href="{{ url_for('vehicle_categories') }}" class="btn btn-secondary">
                     <i class="fas fa-times"></i> Cancel

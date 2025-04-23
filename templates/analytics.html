@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics & Reports{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>Analytics & Reports</h1>
+        <div class="date-range-picker">
+            <input type="date" id="startDate" class="form-control">
+            <input type="date" id="endDate" class="form-control">
+            <button class="btn btn-primary" onclick="updateReports()">Apply</button>
+        </div>
+    </div>
+
+    <!-- Simple Report Menu -->
+    <div class="report-menu">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary active" onclick="showReport('summary')">
+                <i class="fas fa-chart-pie"></i> Summary
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="showReport('vehicle')">
+                <i class="fas fa-car"></i> Vehicle
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="showReport('overnight')">
+                <i class="fas fa-moon"></i> Overnight
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="showReport('revenue')">
+                <i class="fas fa-rupee-sign"></i> Revenue
+            </button>
+        </div>
+    </div>
+
+    <!-- Report Content -->
+    <div id="reportContent" class="mt-4">
+        <!-- Summary Report -->
+        <div id="summaryReport" class="report-section">
+            <div class="summary-cards">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Revenue</h5>
+                        <h2 class="card-text">₹<span id="totalRevenue">0</span></h2>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Vehicles</h5>
+                        <h2 class="card-text"><span id="totalVehicles">0</span></h2>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Overnight Vehicles</h5>
+                        <h2 class="card-text"><span id="overnightVehicles">0</span></h2>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Average Stay Duration</h5>
+                        <h2 class="card-text"><span id="avgStayDuration">0</span> hrs</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vehicle Report -->
+        <div id="vehicleReport" class="report-section" style="display: none;">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Vehicle In Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table" id="vehicleInTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Vehicle Number</th>
+                                            <th>Category</th>
+                                            <th>Entry Time</th>
+                                            <th>Location</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Vehicle Out Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table" id="vehicleOutTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Vehicle Number</th>
+                                            <th>Category</th>
+                                            <th>Exit Time</th>
+                                            <th>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overnight Report -->
+        <div id="overnightReport" class="report-section" style="display: none;">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Overnight Vehicle Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table" id="overnightTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Vehicle Number</th>
+                                            <th>Category</th>
+                                            <th>Entry Time</th>
+                                            <th>Exit Time</th>
+                                            <th>Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenue Report -->
+        <div id="revenueReport" class="report-section" style="display: none;">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Revenue by Category</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="revenueByCategoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Vehicle Count by Category</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="vehicleCountByCategoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .date-range-picker {
+        display: flex;
+        gap: 10px;
+    }
+
+    .report-menu {
+        margin-bottom: 20px;
+    }
+
+    .btn-group {
+        width: 100%;
+    }
+
+    .btn-group .btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .btn-group .btn i {
+        font-size: 1.1rem;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .card-title {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+    }
+
+    .card-text {
+        color: #1a237e;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+    }
+
+    .report-section {
+        margin-top: 20px;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize date range with current month
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        document.getElementById('startDate').value = firstDay.toISOString().split('T')[0];
+        document.getElementById('endDate').value = lastDay.toISOString().split('T')[0];
+        
+        // Show summary report by default
+        showReport('summary');
+    });
+
+    function showReport(reportType) {
+        // Update button states
+        document.querySelectorAll('.btn-group .btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+
+        // Hide all report sections
+        document.querySelectorAll('.report-section').forEach(section => {
+            section.style.display = 'none';
+        });
+
+        // Show selected report section
+        document.getElementById(reportType + 'Report').style.display = 'block';
+
+        // Update data for the selected report
+        updateReports();
+    }
+
+    function updateReports() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        
+        // Fetch and update summary data
+        fetch(`/api/analytics/summary?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('totalRevenue').textContent = data.total_revenue.toFixed(2);
+                document.getElementById('totalVehicles').textContent = data.total_vehicles;
+                document.getElementById('overnightVehicles').textContent = data.overnight_vehicles;
+                document.getElementById('avgStayDuration').textContent = data.avg_stay_duration.toFixed(1);
+            });
+
+        // Fetch and update vehicle in/out details
+        fetch(`/api/analytics/vehicle-in?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => updateVehicleInTable(data));
+
+        fetch(`/api/analytics/vehicle-out?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => updateVehicleOutTable(data));
+
+        // Fetch and update overnight vehicle details
+        fetch(`/api/analytics/overnight?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => updateOvernightTable(data));
+
+        // Update charts
+        updateCharts(startDate, endDate);
+    }
+
+    function updateVehicleInTable(data) {
+        const tbody = document.querySelector('#vehicleInTable tbody');
+        tbody.innerHTML = '';
+        data.forEach(vehicle => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${vehicle.vehicle_number}</td>
+                    <td>${vehicle.category}</td>
+                    <td>${new Date(vehicle.entry_time).toLocaleString()}</td>
+                    <td>${vehicle.location}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function updateVehicleOutTable(data) {
+        const tbody = document.querySelector('#vehicleOutTable tbody');
+        tbody.innerHTML = '';
+        data.forEach(vehicle => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${vehicle.vehicle_number}</td>
+                    <td>${vehicle.category}</td>
+                    <td>${new Date(vehicle.exit_time).toLocaleString()}</td>
+                    <td>₹${vehicle.amount.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function updateOvernightTable(data) {
+        const tbody = document.querySelector('#overnightTable tbody');
+        tbody.innerHTML = '';
+        data.forEach(vehicle => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${vehicle.vehicle_number}</td>
+                    <td>${vehicle.category}</td>
+                    <td>${new Date(vehicle.entry_time).toLocaleString()}</td>
+                    <td>${new Date(vehicle.exit_time).toLocaleString()}</td>
+                    <td>₹${vehicle.amount.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+    }
+
+    function updateCharts(startDate, endDate) {
+        // Revenue by Category Chart
+        fetch(`/api/analytics/revenue-by-category?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('revenueByCategoryChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Revenue',
+                            data: data.values,
+                            backgroundColor: 'rgba(26, 35, 126, 0.5)',
+                            borderColor: 'rgba(26, 35, 126, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            });
+
+        // Vehicle Count by Category Chart
+        fetch(`/api/analytics/vehicle-count-by-category?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('vehicleCountByCategoryChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.values,
+                            backgroundColor: [
+                                'rgba(26, 35, 126, 0.5)',
+                                'rgba(76, 175, 80, 0.5)',
+                                'rgba(255, 152, 0, 0.5)',
+                                'rgba(244, 67, 54, 0.5)'
+                            ],
+                            borderColor: [
+                                'rgba(26, 35, 126, 1)',
+                                'rgba(76, 175, 80, 1)',
+                                'rgba(255, 152, 0, 1)',
+                                'rgba(244, 67, 54, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true
+                    }
+                });
+            });
+    }
+</script>
+{% endblock %} 
