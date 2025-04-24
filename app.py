@@ -9,6 +9,7 @@ from flask_migrate import Migrate
 from datetime import datetime, timedelta
 import io
 import csv
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -1372,6 +1373,18 @@ def vehicle_exit():
     try:
         data = request.get_json()
         
+        # Log the received data
+        logger.info("Received vehicle exit data:")
+        logger.info(f"Transaction ID: {data.get('transactionId')}")
+        logger.info(f"Exit Time: {data.get('exitTime')}")
+        logger.info(f"Amount Paid: {data.get('amountPaid')}")
+        logger.info(f"Status: {data.get('status')}")
+        logger.info(f"Payment Method: {data.get('paymentMethod')}")
+        logger.info(f"Payment Reference: {data.get('paymentReference')}")
+        logger.info(f"Device ID: {data.get('deviceId')}")
+        logger.info(f"Location: {data.get('location')}")
+        logger.info(f"Site: {data.get('site')}")
+        
         # Validate required fields
         required_fields = ['transactionId', 'exitTime', 'amountPaid']
         for field in required_fields:
@@ -1384,10 +1397,14 @@ def vehicle_exit():
         # Find the vehicle entry
         vehicle_entry = VehicleEntry.query.filter_by(transaction_id=data['transactionId']).first()
         if not vehicle_entry:
+            logger.warning(f"Transaction ID not found: {data['transactionId']}")
             return jsonify({
                 'status': 'error',
                 'message': 'Transaction ID not found'
             }), 404
+
+        # Log the found vehicle entry
+        logger.info(f"Found vehicle entry: ID={vehicle_entry.id}, Vehicle Number={vehicle_entry.vehicle_number}, Exit Time={vehicle_entry.exit_time}")
 
         # Parse exit time with multiple format support
         exit_time = None
@@ -1417,6 +1434,7 @@ def vehicle_exit():
 
         # If vehicle has already exited, update the existing record
         if vehicle_entry.exit_time:
+            logger.info(f"Vehicle has already exited. Updating existing record.")
             # Update the existing exit record
             vehicle_entry.exit_time = exit_time
             vehicle_entry.amount_paid = float(data['amountPaid'])
@@ -1426,6 +1444,7 @@ def vehicle_exit():
             vehicle_entry.device_id = data.get('deviceId')  # Update device_id from exit device
             
             db.session.commit()
+            logger.info(f"Updated vehicle exit record: ID={vehicle_entry.id}, Exit Time={vehicle_entry.exit_time}, Amount Paid={vehicle_entry.amount_paid}")
             
             return jsonify({
                 'status': 'success',
@@ -1454,6 +1473,7 @@ def vehicle_exit():
         vehicle_entry.device_id = data.get('deviceId')  # Update device_id from exit device
 
         db.session.commit()
+        logger.info(f"Created new vehicle exit record: ID={vehicle_entry.id}, Exit Time={vehicle_entry.exit_time}, Amount Paid={vehicle_entry.amount_paid}")
 
         # Return response with ISO format dates including timezone
         return jsonify({
@@ -1476,6 +1496,9 @@ def vehicle_exit():
 
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Error processing vehicle exit: {str(e)}")
+        logger.error(f"Error details: {type(e).__name__}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
             'status': 'error',
             'message': f'Error processing vehicle exit: {str(e)}'
