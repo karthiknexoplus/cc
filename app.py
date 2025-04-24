@@ -1389,12 +1389,35 @@ def vehicle_exit():
                 'message': 'Transaction ID not found'
             }), 404
 
-        # Check if vehicle has already exited
+        # If vehicle has already exited, update the existing record
         if vehicle_entry.exit_time:
+            # Update the existing exit record
+            vehicle_entry.exit_time = exit_time
+            vehicle_entry.amount_paid = float(data['amountPaid'])
+            vehicle_entry.payment_status = data.get('status', 'completed')
+            vehicle_entry.payment_method = data.get('paymentMethod')
+            vehicle_entry.payment_reference = data.get('paymentReference')
+            vehicle_entry.device_id = data.get('deviceId')  # Update device_id from exit device
+            
+            db.session.commit()
+            
             return jsonify({
-                'status': 'error',
-                'message': 'Vehicle has already exited'
-            }), 409
+                'status': 'success',
+                'message': 'Vehicle exit record updated successfully',
+                'data': {
+                    'id': vehicle_entry.id,
+                    'vehicleNumber': vehicle_entry.vehicle_number,
+                    'vehicleType': vehicle_entry.vehicle_type,
+                    'transactionId': vehicle_entry.transaction_id,
+                    'entryTime': vehicle_entry.entry_time.isoformat() + 'Z',
+                    'exitTime': vehicle_entry.exit_time.isoformat() + 'Z',
+                    'amountPaid': vehicle_entry.amount_paid,
+                    'paymentStatus': vehicle_entry.payment_status,
+                    'paymentMethod': vehicle_entry.payment_method,
+                    'paymentReference': vehicle_entry.payment_reference,
+                    'duration': str(vehicle_entry.exit_time - vehicle_entry.entry_time)
+                }
+            }), 200
 
         # Parse exit time with multiple format support
         exit_time = None
