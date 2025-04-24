@@ -1389,6 +1389,32 @@ def vehicle_exit():
                 'message': 'Transaction ID not found'
             }), 404
 
+        # Parse exit time with multiple format support
+        exit_time = None
+        try:
+            # Try parsing as ISO format first
+            exit_time_str = data['exitTime']
+            if 'Z' in exit_time_str:
+                exit_time = datetime.fromisoformat(exit_time_str.replace('Z', '+00:00'))
+            elif '+' in exit_time_str or '-' in exit_time_str[-6:]:
+                exit_time = datetime.fromisoformat(exit_time_str)
+            else:
+                # If no timezone indicator, assume local timezone
+                exit_time = datetime.strptime(exit_time_str, '%Y-%m-%dT%H:%M:%S')
+        except ValueError:
+            try:
+                # Try parsing as "MMM DD, YYYY HH:MM:SS AM/PM" format
+                exit_time = datetime.strptime(data['exitTime'], '%b %d, %Y %I:%M:%S %p')
+            except ValueError:
+                try:
+                    # Try parsing as "YYYY-MM-DD HH:MM:SS" format
+                    exit_time = datetime.strptime(data['exitTime'], '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'Invalid date format: {data["exitTime"]}. Supported formats: ISO (with or without timezone), "MMM DD, YYYY HH:MM:SS AM/PM", "YYYY-MM-DD HH:MM:SS"'
+                    }), 400
+
         # If vehicle has already exited, update the existing record
         if vehicle_entry.exit_time:
             # Update the existing exit record
@@ -1418,32 +1444,6 @@ def vehicle_exit():
                     'duration': str(vehicle_entry.exit_time - vehicle_entry.entry_time)
                 }
             }), 200
-
-        # Parse exit time with multiple format support
-        exit_time = None
-        try:
-            # Try parsing as ISO format first
-            exit_time_str = data['exitTime']
-            if 'Z' in exit_time_str:
-                exit_time = datetime.fromisoformat(exit_time_str.replace('Z', '+00:00'))
-            elif '+' in exit_time_str or '-' in exit_time_str[-6:]:
-                exit_time = datetime.fromisoformat(exit_time_str)
-            else:
-                # If no timezone indicator, assume local timezone
-                exit_time = datetime.strptime(exit_time_str, '%Y-%m-%dT%H:%M:%S')
-        except ValueError:
-            try:
-                # Try parsing as "MMM DD, YYYY HH:MM:SS AM/PM" format
-                exit_time = datetime.strptime(data['exitTime'], '%b %d, %Y %I:%M:%S %p')
-            except ValueError:
-                try:
-                    # Try parsing as "YYYY-MM-DD HH:MM:SS" format
-                    exit_time = datetime.strptime(data['exitTime'], '%Y-%m-%d %H:%M:%S')
-                except ValueError:
-                    return jsonify({
-                        'status': 'error',
-                        'message': f'Invalid date format: {data["exitTime"]}. Supported formats: ISO (with or without timezone), "MMM DD, YYYY HH:MM:SS AM/PM", "YYYY-MM-DD HH:MM:SS"'
-                    }), 400
 
         # Update vehicle entry with exit information
         vehicle_entry.exit_time = exit_time
