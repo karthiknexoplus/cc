@@ -74,8 +74,9 @@
         background: white;
         border-radius: 10px;
         overflow: hidden;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
+        border: 1px solid #eee;
     }
 
     .location-card:hover {
@@ -86,7 +87,7 @@
     .location-header {
         background: #1a237e;
         color: white;
-        padding: 12px 15px;
+        padding: 15px 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -94,49 +95,53 @@
 
     .location-header h3 {
         margin: 0;
-        font-size: 1rem;
-        font-weight: 600;
+        font-size: 1.1rem;
+        font-weight: 500;
     }
 
     .location-body {
-        padding: 15px;
+        padding: 20px;
     }
 
     .location-info {
-        margin-bottom: 10px;
+        margin-bottom: 15px;
     }
 
     .location-info p {
-        margin: 3px 0;
+        margin: 8px 0;
         color: #666;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         display: flex;
-        justify-content: space-between;
+        align-items: flex-start;
     }
 
     .location-info strong {
         color: #333;
         font-weight: 500;
+        min-width: 120px;
+        display: inline-block;
+    }
+
+    .location-info span {
+        color: #555;
     }
 
     .location-footer {
-        padding: 10px 15px;
+        padding: 15px 20px;
         background: #f8f9fa;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        border-top: 1px solid #eee;
     }
 
     .location-status {
-        padding: 4px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
         font-weight: 500;
     }
 
     .status-active {
-        background: #d4edda;
-        color: #155724;
+        background: #e8f5e9;
+        color: #2e7d32;
     }
 
     .status-inactive {
@@ -146,15 +151,22 @@
 
     .location-actions {
         display: flex;
-        gap: 8px;
+        gap: 10px;
     }
 
     .action-btn {
-        padding: 6px 10px;
+        padding: 8px 16px;
         border-radius: 6px;
         text-decoration: none;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .action-btn i {
         font-size: 0.8rem;
-        transition: all 0.3s ease;
     }
 
     .edit-btn {
@@ -162,17 +174,9 @@
         color: white;
     }
 
-    .edit-btn:hover {
-        background: #0d1a6b;
-    }
-
     .delete-btn {
         background: #dc3545;
         color: white;
-    }
-
-    .delete-btn:hover {
-        background: #c82333;
     }
 
     @media (max-width: 768px) {
