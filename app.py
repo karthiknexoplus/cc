@@ -15,6 +15,13 @@ import traceback
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Add console handler to ensure logs are printed to terminal
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
@@ -1159,8 +1166,11 @@ def export_reports():
 
 @app.route('/api/vehicle-in', methods=['POST'])
 def vehicle_entry():
+    print("Vehicle-in endpoint called")  # Direct print for immediate feedback
+    logger.info("Vehicle-in endpoint called")
     try:
         data = request.get_json()
+        print(f"Received data: {data}")  # Direct print for immediate feedback
         
         # Log the incoming data
         logger.info("Received vehicle entry data:")
@@ -1370,8 +1380,11 @@ def analytics_vehicle_in():
 
 @app.route('/api/vehicle-out', methods=['POST'])
 def vehicle_exit():
+    print("Vehicle-out endpoint called")  # Direct print for immediate feedback
+    logger.info("Vehicle-out endpoint called")
     try:
         data = request.get_json()
+        print(f"Received data: {data}")  # Direct print for immediate feedback
         
         # Log the received data
         logger.info("Received vehicle exit data:")
