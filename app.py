@@ -1428,6 +1428,7 @@ def vehicle_exit():
         vehicle_entry.payment_status = data.get('status', 'completed')
         vehicle_entry.payment_method = data.get('paymentMethod')
         vehicle_entry.payment_reference = data.get('paymentReference')
+        vehicle_entry.device_id = data.get('deviceId')  # Update device_id from exit device
 
         db.session.commit()
 
