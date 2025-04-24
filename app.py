@@ -311,6 +311,12 @@ def dashboard():
     # Get exits within date range and filters
     exits = exits_query.all()
     today_exits = len(exits)
+    
+    # Log the exits data
+    logger.info(f"Dashboard exits query: from_date={from_date}, to_date={to_date}, device_id={device_id}, site={site}")
+    logger.info(f"Found {today_exits} exits in the date range")
+    for exit in exits:
+        logger.info(f"Exit: ID={exit.id}, Vehicle Number={exit.vehicle_number}, Exit Time={exit.exit_time}, Amount Paid={exit.amount_paid}")
 
     # Get overnight passes within date range and filters
     overnight_query = OvernightPass.query.filter(
@@ -1475,6 +1481,10 @@ def vehicle_exit():
             
             db.session.commit()
             logger.info(f"Updated vehicle exit record: ID={vehicle_entry.id}, Exit Time={vehicle_entry.exit_time}, Amount Paid={vehicle_entry.amount_paid}")
+            
+            # Verify the database state after update
+            db.session.refresh(vehicle_entry)
+            logger.info(f"Database state after update: ID={vehicle_entry.id}, Exit Time={vehicle_entry.exit_time}, Amount Paid={vehicle_entry.amount_paid}")
             
             return jsonify({
                 'status': 'success',
