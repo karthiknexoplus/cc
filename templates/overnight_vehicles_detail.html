@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Overnight Vehicles Detail{% endblock %}
+
+{% block content %}
+<style>
+    .detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .detail-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .date-filter-container {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+    }
+
+    .date-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .date-filter-group label {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .date-filter-group input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    .filter-button {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .filter-button:hover {
+        background: #1976d2;
+    }
+
+    .overnight-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .overnight-table th,
+    .overnight-table td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+
+    .overnight-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .overnight-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .overnight-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    .duration {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .overnight-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        background: rgba(156, 39, 176, 0.1);
+        color: #9c27b0;
+    }
+
+    .amount {
+        font-weight: 500;
+        color: #4caf50;
+    }
+
+    .device-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        background: rgba(156, 39, 176, 0.1);
+        color: #9c27b0;
+    }
+
+    .location-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .location-name {
+        font-weight: 500;
+        color: #333;
+    }
+
+    .site-name {
+        font-size: 0.8rem;
+        color: #666;
+    }
+
+    .export-button {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .export-button:hover {
+        background: #1976d2;
+    }
+</style>
+
+<div class="detail-container">
+    <div class="detail-header">
+        <h1 class="detail-title">Overnight Passes Detail</h1>
+        <button class="export-button" onclick="exportToCSV()">
+            <i class="fas fa-download"></i> Export to CSV
+        </button>
+    </div>
+
+    <div class="date-filter-container">
+        <div class="date-filter-group">
+            <label for="from-date">From:</label>
+            <input type="datetime-local" id="from-date" name="from-date" value="{{ from_date }}">
+        </div>
+        <div class="date-filter-group">
+            <label for="to-date">To:</label>
+            <input type="datetime-local" id="to-date" name="to-date" value="{{ to_date }}">
+        </div>
+        <button class="filter-button" onclick="applyDateFilter()">Apply Filter</button>
+    </div>
+
+    <table class="overnight-table">
+        <thead>
+            <tr>
+                <th>Pass Name</th>
+                <th>Vehicle Type</th>
+                <th>Created At</th>
+                <th>Validity</th>
+                <th>Amount</th>
+                <th>Device</th>
+                <th>Location</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pass_item in overnight_vehicles %}
+            <tr>
+                <td>{{ pass_item.name }}</td>
+                <td>{{ pass_item.vehicle_type }}</td>
+                <td>{{ pass_item.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td class="duration">{{ pass_item.duration }}</td>
+                <td class="amount">₹{{ pass_item.amount }}</td>
+                <td>
+                    <span class="device-badge">{{ pass_item.device_id }}</span>
+                </td>
+                <td>
+                    <div class="location-info">
+                        <span class="location-name">{{ pass_item.location }}</span>
+                        <span class="site-name">{{ pass_item.site }}</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="overnight-badge">{{ pass_item.status|title }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function applyDateFilter() {
+    const fromDate = document.getElementById('from-date').value;
+    const toDate = document.getElementById('to-date').value;
+    
+    // Add the date parameters to the current URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('from_date', fromDate);
+    url.searchParams.set('to_date', toDate);
+    
+    // Reload the page with the new parameters
+    window.location.href = url.toString();
+}
+
+function exportToCSV() {
+    const fromDate = document.getElementById('from-date').value;
+    const toDate = document.getElementById('to-date').value;
+    
+    // Create the export URL with the current filter parameters
+    const url = new URL(window.location.href);
+    url.pathname = '/api/overnight-passes/export';
+    url.searchParams.set('from_date', fromDate);
+    url.searchParams.set('to_date', toDate);
+    
+    // Trigger the download
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %} 

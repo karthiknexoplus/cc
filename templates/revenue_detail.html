@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+
+{% block title %}Revenue Detail{% endblock %}
+
+{% block content %}
+<style>
+    .detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .detail-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .date-filter-container {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+    }
+
+    .date-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .date-filter-group label {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .date-filter-group input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    .filter-button {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .filter-button:hover {
+        background: #1976d2;
+    }
+
+    .revenue-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .revenue-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .revenue-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .revenue-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .revenue-card-title {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .revenue-card-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+
+    .revenue-card-icon.total {
+        background: rgba(33, 150, 243, 0.1);
+        color: #2196f3;
+    }
+
+    .revenue-card-icon.avg {
+        background: rgba(76, 175, 80, 0.1);
+        color: #4caf50;
+    }
+
+    .revenue-card-icon.payment {
+        background: rgba(255, 152, 0, 0.1);
+        color: #ff9800;
+    }
+
+    .revenue-card-icon.hour {
+        background: rgba(33, 150, 243, 0.1);
+        color: #2196f3;
+    }
+
+    .revenue-card-icon.regular {
+        background: rgba(33, 150, 243, 0.1);
+        color: #2196f3;
+    }
+
+    .revenue-card-icon.overnight {
+        background: rgba(156, 39, 176, 0.1);
+        color: #9c27b0;
+    }
+
+    .revenue-card-value {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 5px;
+    }
+
+    .revenue-card-description {
+        color: #666;
+        font-size: 0.85rem;
+    }
+
+    .revenue-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .revenue-table th,
+    .revenue-table td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+
+    .revenue-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .revenue-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .revenue-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    .amount {
+        font-weight: 500;
+        color: #4caf50;
+    }
+
+    .payment-method {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .payment-method.cash {
+        background: rgba(76, 175, 80, 0.1);
+        color: #4caf50;
+    }
+
+    .payment-method.upi {
+        background: rgba(33, 150, 243, 0.1);
+        color: #2196f3;
+    }
+
+    .payment-method.card {
+        background: rgba(156, 39, 176, 0.1);
+        color: #9c27b0;
+    }
+
+    .hour-distribution {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .hour-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .hour-label {
+        width: 60px;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .hour-value {
+        flex: 1;
+        background: #f0f0f0;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .hour-value-fill {
+        height: 100%;
+        background: #2196f3;
+        border-radius: 4px;
+    }
+
+    .hour-amount {
+        width: 80px;
+        text-align: right;
+        color: #666;
+        font-size: 0.9rem;
+    }
+</style>
+
+<div class="detail-container">
+    <div class="detail-header">
+        <h1 class="detail-title">Revenue Detail</h1>
+    </div>
+
+    <div class="date-filter-container">
+        <div class="date-filter-group">
+            <label for="from-date">From:</label>
+            <input type="datetime-local" id="from-date" name="from-date" value="{{ from_date }}">
+        </div>
+        <div class="date-filter-group">
+            <label for="to-date">To:</label>
+            <input type="datetime-local" id="to-date" name="to-date" value="{{ to_date }}">
+        </div>
+        <button class="filter-button" onclick="applyDateFilter()">Apply Filter</button>
+    </div>
+
+    <div class="revenue-cards">
+        <div class="revenue-card">
+            <div class="revenue-card-header">
+                <span class="revenue-card-title">Total Revenue</span>
+                <div class="revenue-card-icon total">
+                    <i class="fas fa-rupee-sign"></i>
+                </div>
+            </div>
+            <div class="revenue-card-value">₹{{ total_revenue }}</div>
+            <div class="revenue-card-description">Total revenue in selected period</div>
+        </div>
+
+        <div class="revenue-card">
+            <div class="revenue-card-header">
+                <span class="revenue-card-title">Regular Vehicle Revenue</span>
+                <div class="revenue-card-icon regular">
+                    <i class="fas fa-car"></i>
+                </div>
+            </div>
+            <div class="revenue-card-value">₹{{ regular_revenue }}</div>
+            <div class="revenue-card-description">Revenue from regular vehicle entries</div>
+        </div>
+
+        <div class="revenue-card">
+            <div class="revenue-card-header">
+                <span class="revenue-card-title">Overnight Pass Revenue</span>
+                <div class="revenue-card-icon overnight">
+                    <i class="fas fa-moon"></i>
+                </div>
+            </div>
+            <div class="revenue-card-value">₹{{ overnight_revenue }}</div>
+            <div class="revenue-card-description">Revenue from overnight passes</div>
+        </div>
+
+        <div class="revenue-card">
+            <div class="revenue-card-header">
+                <span class="revenue-card-title">Average Transaction</span>
+                <div class="revenue-card-icon avg">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+            </div>
+            <div class="revenue-card-value">₹{{ "%.2f"|format(avg_transaction) }}</div>
+            <div class="revenue-card-description">Average amount per transaction</div>
+        </div>
+
+        <div class="revenue-card">
+            <div class="revenue-card-header">
+                <span class="revenue-card-title">Payment Methods</span>
+                <div class="revenue-card-icon payment">
+                    <i class="fas fa-credit-card"></i>
+                </div>
+            </div>
+            <div class="revenue-card-value">
+                {% for method, amount in revenue_by_payment.items() %}
+                <div>{{ method|title }}: ₹{{ amount }}</div>
+                {% endfor %}
+            </div>
+            <div class="revenue-card-description">Revenue by payment method</div>
+        </div>
+
+        <div class="revenue-card">
+            <div class="revenue-card-header">
+                <span class="revenue-card-title">Revenue by Hour</span>
+                <div class="revenue-card-icon hour">
+                    <i class="fas fa-clock"></i>
+                </div>
+            </div>
+            <div class="revenue-card-value">
+                <div class="hour-distribution">
+                    {% set max_revenue = revenue_by_hour.values()|max if revenue_by_hour else 0 %}
+                    {% for hour in range(24) %}
+                    {% set amount = revenue_by_hour.get(hour, 0) %}
+                    <div class="hour-bar">
+                        <span class="hour-label">{{ "%02d:00"|format(hour) }}</span>
+                        <div class="hour-value">
+                            <div class="hour-value-fill" style="width: {{ (amount / max_revenue * 100)|round if max_revenue > 0 else 0 }}%"></div>
+                        </div>
+                        <span class="hour-amount">₹{{ amount }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="revenue-card-description">Revenue distribution by hour</div>
+        </div>
+    </div>
+
+    <table class="revenue-table">
+        <thead>
+            <tr>
+                <th>Vehicle Number</th>
+                <th>Vehicle Type</th>
+                <th>Entry Time</th>
+                <th>Exit Time</th>
+                <th>Amount</th>
+                <th>Payment Method</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+            <tr>
+                <td>{{ transaction.vehicle_number }}</td>
+                <td>{{ transaction.vehicle_type }}</td>
+                <td>{{ transaction.entry_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>{{ transaction.exit_time.strftime('%Y-%m-%d %H:%M:%S') if transaction.exit_time else '-' }}</td>
+                <td class="amount">₹{{ transaction.amount_paid or 0 }}</td>
+                <td>
+                    <span class="payment-method {{ transaction.payment_method }}">
+                        {{ transaction.payment_method|title if transaction.payment_method else '-' }}
+                    </span>
+                </td>
+                <td>{{ transaction.payment_status|title }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function applyDateFilter() {
+    const fromDate = document.getElementById('from-date').value;
+    const toDate = document.getElementById('to-date').value;
+    
+    // Add the date parameters to the current URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('from_date', fromDate);
+    url.searchParams.set('to_date', toDate);
+    
+    // Reload the page with the new parameters
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %} 

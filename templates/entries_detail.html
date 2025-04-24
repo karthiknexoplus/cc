@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Vehicle Entries Detail{% endblock %}
+
+{% block content %}
+<style>
+    .detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .detail-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .date-filter-container {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+    }
+
+    .date-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .date-filter-group label {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .date-filter-group input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    .filter-button {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .filter-button:hover {
+        background: #1976d2;
+    }
+
+    .entries-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .entries-table th,
+    .entries-table td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+
+    .entries-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .entries-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .entries-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .status-badge.active {
+        background: rgba(76, 175, 80, 0.1);
+        color: #4caf50;
+    }
+
+    .status-badge.exited {
+        background: rgba(33, 150, 243, 0.1);
+        color: #2196f3;
+    }
+
+    .device-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        background: rgba(156, 39, 176, 0.1);
+        color: #9c27b0;
+    }
+
+    .location-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .location-name {
+        font-weight: 500;
+        color: #333;
+    }
+
+    .site-name {
+        font-size: 0.8rem;
+        color: #666;
+    }
+
+    .export-button {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .export-button:hover {
+        background: #1976d2;
+    }
+
+    .export-button i {
+        font-size: 1rem;
+    }
+</style>
+
+<div class="detail-container">
+    <div class="detail-header">
+        <h1 class="detail-title">Vehicle Entries Detail</h1>
+        <button class="export-button" onclick="exportToCSV()">
+            <i class="fas fa-download"></i> Export to CSV
+        </button>
+    </div>
+
+    <div class="date-filter-container">
+        <div class="date-filter-group">
+            <label for="from-date">From:</label>
+            <input type="datetime-local" id="from-date" name="from-date" value="{{ from_date }}">
+        </div>
+        <div class="date-filter-group">
+            <label for="to-date">To:</label>
+            <input type="datetime-local" id="to-date" name="to-date" value="{{ to_date }}">
+        </div>
+        <button class="filter-button" onclick="applyDateFilter()">Apply Filter</button>
+    </div>
+
+    <table class="entries-table">
+        <thead>
+            <tr>
+                <th>Vehicle Number</th>
+                <th>Vehicle Type</th>
+                <th>Entry Time</th>
+                <th>Exit Time</th>
+                <th>Status</th>
+                <th>Amount Paid</th>
+                <th>Device</th>
+                <th>Location</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td>{{ entry.vehicle_number }}</td>
+                <td>{{ entry.vehicle_type }}</td>
+                <td>{{ entry.entry_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>{{ entry.exit_time.strftime('%Y-%m-%d %H:%M:%S') if entry.exit_time else '-' }}</td>
+                <td>
+                    <span class="status-badge {{ 'active' if not entry.exit_time else 'exited' }}">
+                        {{ 'Active' if not entry.exit_time else 'Exited' }}
+                    </span>
+                </td>
+                <td>₹{{ entry.amount_paid or 0 }}</td>
+                <td>
+                    <span class="device-badge">{{ entry.device_id }}</span>
+                </td>
+                <td>
+                    <div class="location-info">
+                        <span class="location-name">{{ entry.location }}</span>
+                        <span class="site-name">{{ entry.site }}</span>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function applyDateFilter() {
+    const fromDate = document.getElementById('from-date').value;
+    const toDate = document.getElementById('to-date').value;
+    
+    // Add the date parameters to the current URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('from_date', fromDate);
+    url.searchParams.set('to_date', toDate);
+    
+    // Reload the page with the new parameters
+    window.location.href = url.toString();
+}
+
+function exportToCSV() {
+    const fromDate = document.getElementById('from-date').value;
+    const toDate = document.getElementById('to-date').value;
+    
+    // Create the export URL with the current filter parameters
+    const url = new URL(window.location.href);
+    url.pathname = '/api/entries/export';
+    url.searchParams.set('from_date', fromDate);
+    url.searchParams.set('to_date', toDate);
+    
+    // Determine if we're on the exits view
+    const isExitsView = window.location.pathname.includes('exits');
+    url.searchParams.set('type', isExitsView ? 'exits' : 'entries');
+    
+    // Trigger the download
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,432 @@
+.report-nav {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.report-nav .btn-group {
+    width: 100%;
+    display: flex;
+    gap: 1rem;
+}
+
+.report-nav .btn {
+    flex: 1;
+    padding: 1rem;
+    font-size: 1.1rem;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    border: 2px solid #e9ecef;
+    background: white;
+    color: #495057;
+}
+
+.report-nav .btn i {
+    margin-right: 0.75rem;
+    font-size: 1.2rem;
+}
+
+.report-nav .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.report-nav .btn.active {
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    color: white;
+    border-color: #007bff;
+    box-shadow: 0 4px 8px rgba(0,123,255,0.2);
+}
+
+.report-filters {
+    background: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.report-filters .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.report-filters label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+}
+
+.report-filters .form-control {
+    height: calc(3.5rem + 2px);
+    font-size: 1.1rem;
+    border-radius: 0.75rem;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.report-filters .form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.15);
+}
+
+.report-filters .btn-primary {
+    height: calc(3.5rem + 2px);
+    font-size: 1.1rem;
+    border-radius: 0.75rem;
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    border: none;
+    transition: all 0.3s ease;
+    padding: 0 2rem;
+}
+
+.report-filters .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,123,255,0.2);
+}
+
+.report-section {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.report-section h4 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.report-section h4 i {
+    color: #007bff;
+}
+
+.report-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.summary-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: all 0.3s ease;
+    border: 2px solid #e9ecef;
+}
+
+.summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+
+.summary-card .icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.summary-card .icon i {
+    font-size: 36px;
+    color: white;
+}
+
+.summary-card h3 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 0.75rem;
+}
+
+.summary-card p {
+    color: #6c757d;
+    font-size: 1.1rem;
+    margin: 0;
+    font-weight: 500;
+}
+
+.chart-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    transition: all 0.3s ease;
+    border: 2px solid #e9ecef;
+}
+
+.chart-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+
+.chart-card h5 {
+    color: #212529;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+}
+
+.activity-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    border: 2px solid #e9ecef;
+}
+
+.activity-card h5 {
+    color: #212529;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+}
+
+.activity-list {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 1rem;
+}
+
+.activity-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.activity-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.activity-list::-webkit-scrollbar-thumb {
+    background: #007bff;
+    border-radius: 4px;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    padding: 1.25rem;
+    border-bottom: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.activity-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+.activity-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1.25rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.activity-icon i {
+    font-size: 1.5rem;
+}
+
+.activity-details {
+    flex: 1;
+}
+
+.activity-title {
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.activity-time {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.report-card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    transition: all 0.3s ease;
+    border: 2px solid #e9ecef;
+    overflow: hidden;
+}
+
+.report-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+
+.report-card .card-body {
+    padding: 2rem;
+}
+
+.vehicle-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.vehicle-icon {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.vehicle-icon i {
+    font-size: 32px;
+    color: #6c757d;
+}
+
+.vehicle-details {
+    flex: 1;
+}
+
+.vehicle-number {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 0.5rem;
+}
+
+.vehicle-category {
+    color: #6c757d;
+    font-size: 1.1rem;
+}
+
+.vehicle-time {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid #e9ecef;
+}
+
+.time-info {
+    text-align: left;
+}
+
+.time-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.time-value {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+.vehicle-amount {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #28a745;
+    text-align: right;
+}
+
+.vehicle-location {
+    display: flex;
+    align-items: center;
+    margin-top: 1.5rem;
+    color: #6c757d;
+    font-size: 1.1rem;
+}
+
+.vehicle-location i {
+    margin-right: 0.75rem;
+    color: #007bff;
+}
+
+.vehicle-status {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-completed {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.bg-primary {
+    background: linear-gradient(45deg, #007bff, #0056b3);
+}
+
+.bg-success {
+    background: linear-gradient(45deg, #28a745, #1e7e34);
+}
+
+.bg-info {
+    background: linear-gradient(45deg, #17a2b8, #117a8b);
+}
+
+.bg-warning {
+    background: linear-gradient(45deg, #ffc107, #d39e00);
+}
+
+@media print {
+    .report-nav,
+    .report-filters,
+    .btn-group {
+        display: none !important;
+    }
+
+    .report-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .report-summary {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .chart-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+} 

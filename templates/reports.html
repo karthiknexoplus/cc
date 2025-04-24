@@ -1,13 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Reports{% endblock %}
+{% block title %}Reports & Analytics{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reports.css') }}">
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <!-- Report Navigation -->
     <div class="report-nav mb-4">
         <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-primary active" onclick="showReport('vehicle-in')">
+            <button type="button" class="btn btn-outline-primary active" onclick="showReport('dashboard')">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="showReport('vehicle-in')">
                 <i class="fas fa-sign-in-alt"></i> Vehicle In
             </button>
             <button type="button" class="btn btn-outline-primary" onclick="showReport('vehicle-out')">
@@ -16,416 +23,262 @@
             <button type="button" class="btn btn-outline-primary" onclick="showReport('overnight')">
                 <i class="fas fa-moon"></i> Overnight
             </button>
-            <button type="button" class="btn btn-outline-primary" onclick="showReport('summary')">
-                <i class="fas fa-chart-pie"></i> Summary
+            <button type="button" class="btn btn-outline-primary" onclick="showReport('analytics')">
+                <i class="fas fa-chart-line"></i> Analytics
             </button>
         </div>
     </div>
 
     <!-- Date Filter -->
-    <div class="date-filter mb-4">
-        <div class="card">
-            <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col-md-5">
-                        <div class="form-group">
-                            <label><i class="far fa-calendar-alt"></i> From Date & Time</label>
-                            <input type="datetime-local" id="startDateTime" class="form-control form-control-lg">
-                        </div>
-                    </div>
-                    <div class="col-md-5">
-                        <div class="form-group">
-                            <label><i class="far fa-calendar-alt"></i> To Date & Time</label>
-                            <input type="datetime-local" id="endDateTime" class="form-control form-control-lg">
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label>&nbsp;</label>
-                            <button class="btn btn-primary btn-lg w-100" onclick="generateReport()">
-                                <i class="fas fa-sync-alt"></i> Generate
-                            </button>
-                        </div>
-                    </div>
+    <div class="report-filters">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label for="startDateTime">Start Date & Time</label>
+                    <input type="datetime-local" class="form-control" id="startDateTime">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label for="endDateTime">End Date & Time</label>
+                    <input type="datetime-local" class="form-control" id="endDateTime">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary w-100" onclick="generateReport()">
+                        <i class="fas fa-sync"></i> Generate Report
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Report Content -->
     <div id="reportContent">
-        <!-- Vehicle In Report -->
-        <div id="vehicle-in" class="report-section">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-sign-in-alt"></i> Vehicle In Report
-                        <span class="badge bg-primary ms-2" id="vehicleInCount">0 records</span>
-                    </h5>
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="exportReport('vehicle-in')">
-                            <i class="fas fa-file-excel"></i> Export
-                        </button>
-                        <button class="btn btn-info" onclick="printReport('vehicle-in')">
-                            <i class="fas fa-print"></i> Print
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="vehicleInTable">
-                            <thead>
-                                <tr>
-                                    <th>Vehicle Number</th>
-                                    <th>Category</th>
-                                    <th>Entry Time</th>
-                                    <th>Location</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+        <!-- Dashboard View -->
+        <div id="dashboard" class="report-section">
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4>
+                            <i class="fas fa-tachometer-alt"></i> Parking Dashboard
+                        </h4>
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="exportReport('dashboard')">
+                                <i class="fas fa-file-excel"></i> Export
+                            </button>
+                            <button class="btn btn-info" onclick="printReport('dashboard')">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Summary Cards -->
+            <div class="report-summary">
+                <div class="summary-card">
+                    <div class="icon bg-primary">
+                        <i class="fas fa-rupee-sign"></i>
+                    </div>
+                    <h3>₹<span id="totalRevenue">0</span></h3>
+                    <p>Total Revenue</p>
+                </div>
+                <div class="summary-card">
+                    <div class="icon bg-success">
+                        <i class="fas fa-car"></i>
+                    </div>
+                    <h3><span id="totalVehicles">0</span></h3>
+                    <p>Total Vehicles</p>
+                </div>
+                <div class="summary-card">
+                    <div class="icon bg-info">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <h3><span id="overnightVehicles">0</span></h3>
+                    <p>Overnight Vehicles</p>
+                </div>
+                <div class="summary-card">
+                    <div class="icon bg-warning">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3><span id="avgStayDuration">0</span> hrs</h3>
+                    <p>Avg Stay Duration</p>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <h5>Revenue by Vehicle Type</h5>
+                        <canvas id="revenueByTypeChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <h5>Vehicle Distribution</h5>
+                        <canvas id="vehicleDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="activity-card">
+                        <h5>Recent Activity</h5>
+                        <div class="activity-list" id="recentActivity"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vehicle In Report -->
+        <div id="vehicle-in" class="report-section" style="display: none;">
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4>
+                            <i class="fas fa-sign-in-alt"></i> Vehicle In Report
+                            <span class="badge bg-primary ms-2" id="vehicleInCount">0 records</span>
+                        </h4>
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="exportReport('vehicle-in')">
+                                <i class="fas fa-file-excel"></i> Export
+                            </button>
+                            <button class="btn btn-info" onclick="printReport('vehicle-in')">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row" id="vehicleInCards"></div>
         </div>
 
         <!-- Vehicle Out Report -->
         <div id="vehicle-out" class="report-section" style="display: none;">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-sign-out-alt"></i> Vehicle Out Report
-                        <span class="badge bg-primary ms-2" id="vehicleOutCount">0 records</span>
-                    </h5>
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="exportReport('vehicle-out')">
-                            <i class="fas fa-file-excel"></i> Export
-                        </button>
-                        <button class="btn btn-info" onclick="printReport('vehicle-out')">
-                            <i class="fas fa-print"></i> Print
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="vehicleOutTable">
-                            <thead>
-                                <tr>
-                                    <th>Vehicle Number</th>
-                                    <th>Category</th>
-                                    <th>Exit Time</th>
-                                    <th>Amount</th>
-                                    <th>Payment Status</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4>
+                            <i class="fas fa-sign-out-alt"></i> Vehicle Out Report
+                            <span class="badge bg-primary ms-2" id="vehicleOutCount">0 records</span>
+                        </h4>
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="exportReport('vehicle-out')">
+                                <i class="fas fa-file-excel"></i> Export
+                            </button>
+                            <button class="btn btn-info" onclick="printReport('vehicle-out')">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+            <div class="row" id="vehicleOutCards"></div>
         </div>
 
         <!-- Overnight Report -->
         <div id="overnight" class="report-section" style="display: none;">
-            <!-- Summary Cards -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="summary-card" style="background: linear-gradient(45deg, #2196F3, #1976D2);">
-                        <div class="icon">
-                            <i class="fas fa-calendar-day"></i>
-                        </div>
-                        <div class="content">
-                            <h3><span id="todayCount">0</span></h3>
-                            <p>Today's Passes</p>
-                            <h4>₹<span id="todayAmount">0</span></h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="summary-card" style="background: linear-gradient(45deg, #4CAF50, #388E3C);">
-                        <div class="icon">
-                            <i class="fas fa-calendar-week"></i>
-                        </div>
-                        <div class="content">
-                            <h3><span id="yesterdayCount">0</span></h3>
-                            <p>Yesterday's Passes</p>
-                            <h4>₹<span id="yesterdayAmount">0</span></h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="summary-card" style="background: linear-gradient(45deg, #FF9800, #F57C00);">
-                        <div class="icon">
-                            <i class="fas fa-calendar-alt"></i>
-                        </div>
-                        <div class="content">
-                            <h3><span id="weekCount">0</span></h3>
-                            <p>Last 7 Days</p>
-                            <h4>₹<span id="weekAmount">0</span></h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="summary-card" style="background: linear-gradient(45deg, #9C27B0, #7B1FA2);">
-                        <div class="icon">
-                            <i class="fas fa-calendar"></i>
-                        </div>
-                        <div class="content">
-                            <h3><span id="monthCount">0</span></h3>
-                            <p>Last 30 Days</p>
-                            <h4>₹<span id="monthAmount">0</span></h4>
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4>
+                            <i class="fas fa-moon"></i> Overnight Report
+                            <span class="badge bg-primary ms-2" id="overnightCount">0 records</span>
+                        </h4>
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="exportReport('overnight')">
+                                <i class="fas fa-file-excel"></i> Export
+                            </button>
+                            <button class="btn btn-info" onclick="printReport('overnight')">
+                                <i class="fas fa-print"></i> Print
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Overnight Passes Table -->
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-moon"></i> Overnight Report
-                        <span class="badge bg-primary ms-2" id="overnightCount">0 records</span>
-                    </h5>
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="exportReport('overnight')">
-                            <i class="fas fa-file-excel"></i> Export
-                        </button>
-                        <button class="btn btn-info" onclick="printReport('overnight')">
-                            <i class="fas fa-print"></i> Print
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="overnightTable">
-                            <thead>
-                                <tr>
-                                    <th>Vehicle Number</th>
-                                    <th>Category</th>
-                                    <th>Amount</th>
-                                    <th>Validity Days</th>
-                                    <th>Location</th>
-                                    <th>Site</th>
-                                    <th>Device ID</th>
-                                    <th>Created At</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+            <div class="row" id="overnightCards"></div>
         </div>
 
-        <!-- Summary Report -->
-        <div id="summary" class="report-section" style="display: none;">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-chart-pie"></i> Summary Report
-                    </h5>
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="exportReport('summary')">
-                            <i class="fas fa-file-excel"></i> Export
-                        </button>
-                        <button class="btn btn-info" onclick="printReport('summary')">
-                            <i class="fas fa-print"></i> Print
-                        </button>
+        <!-- Analytics Report -->
+        <div id="analytics" class="report-section" style="display: none;">
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4>
+                            <i class="fas fa-chart-line"></i> Analytics
+                        </h4>
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="exportReport('analytics')">
+                                <i class="fas fa-file-excel"></i> Export
+                            </button>
+                            <button class="btn btn-info" onclick="printReport('analytics')">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="summary-card">
-                                <div class="icon bg-primary">
-                                    <i class="fas fa-rupee-sign"></i>
-                                </div>
-                                <div class="content">
-                                    <h3>₹<span id="totalRevenue">0</span></h3>
-                                    <p>Total Revenue</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="summary-card">
-                                <div class="icon bg-success">
-                                    <i class="fas fa-car"></i>
-                                </div>
-                                <div class="content">
-                                    <h3><span id="totalVehicles">0</span></h3>
-                                    <p>Total Vehicles</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="summary-card">
-                                <div class="icon bg-info">
-                                    <i class="fas fa-moon"></i>
-                                </div>
-                                <div class="content">
-                                    <h3><span id="overnightVehicles">0</span></h3>
-                                    <p>Overnight Vehicles</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="summary-card">
-                                <div class="icon bg-warning">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="content">
-                                    <h3><span id="avgStayDuration">0</span> hrs</h3>
-                                    <p>Avg Stay Duration</p>
-                                </div>
-                            </div>
-                        </div>
+            </div>
+
+            <!-- Analytics Charts -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <h5>Hourly Traffic</h5>
+                        <canvas id="hourlyTrafficChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <h5>Daily Revenue</h5>
+                        <canvas id="dailyRevenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <h5>Vehicle Type Distribution</h5>
+                        <canvas id="vehicleTypeChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <h5>Payment Method Distribution</h5>
+                        <canvas id="paymentMethodChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
-<style>
-    .report-nav {
-        background: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .report-nav .btn-group {
-        width: 100%;
-    }
-
-    .report-nav .btn {
-        flex: 1;
-        padding: 0.75rem;
-        font-size: 1.1rem;
-    }
-
-    .report-nav .btn i {
-        margin-right: 0.5rem;
-    }
-
-    .date-filter .card {
-        border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .date-filter .form-control-lg {
-        height: calc(3.5rem + 2px);
-        font-size: 1.1rem;
-    }
-
-    .date-filter .btn-lg {
-        height: calc(3.5rem + 2px);
-        font-size: 1.1rem;
-    }
-
-    .card {
-        border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        margin-bottom: 1rem;
-    }
-
-    .card-header {
-        background: white;
-        border-bottom: 1px solid rgba(0,0,0,0.1);
-        padding: 1rem 1.5rem;
-    }
-
-    .table th {
-        background: #f8f9fa;
-        font-weight: 600;
-    }
-
-    .status-active {
-        background: #e3f2fd;
-        color: #1976d2;
-        padding: 0.25rem 0.75rem;
-        border-radius: 1rem;
-        font-size: 0.875rem;
-    }
-
-    .status-inactive {
-        background: #ffebee;
-        color: #d32f2f;
-        padding: 0.25rem 0.75rem;
-        border-radius: 1rem;
-        font-size: 0.875rem;
-    }
-
-    .summary-card {
-        border-radius: 15px;
-        padding: 15px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        color: white;
-        transition: transform 0.3s ease;
-        height: 150px;
-        text-align: center;
-    }
-
-    .summary-card:hover {
-        transform: translateY(-5px);
-    }
-
-    .summary-card .icon {
-        font-size: 2rem;
-        margin-bottom: 10px;
-        opacity: 0.8;
-        width: 50px;
-        height: 50px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-    }
-
-    .summary-card .content {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .summary-card h3 {
-        font-size: 1.8rem;
-        margin: 0;
-        font-weight: bold;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-    }
-
-    .summary-card h4 {
-        font-size: 1.3rem;
-        margin: 5px 0 0 0;
-        font-weight: bold;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-    }
-
-    .summary-card p {
-        margin: 5px 0;
-        opacity: 0.9;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-</style>
-
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let currentReportType = 'vehicle-in';
+    let currentReportType = 'dashboard';
+    let charts = {};
+
+    // Initialize date-time range with current day
+    document.addEventListener('DOMContentLoaded', function() {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        
+        document.getElementById('startDateTime').value = startOfDay.toISOString().slice(0, 16);
+        document.getElementById('endDateTime').value = endOfDay.toISOString().slice(0, 16);
+        
+        // Show dashboard by default
+        showReport('dashboard');
+    });
 
     function showReport(reportType) {
-        console.log('Switching to report type:', reportType);
         currentReportType = reportType;
         
         // Update active button
@@ -440,208 +293,584 @@
         });
 
         // Show selected report section
-        const selectedSection = document.getElementById(reportType);
-        if (selectedSection) {
-            selectedSection.style.display = 'block';
-            console.log('Showing section:', reportType);
-            
-            // Generate report for the selected type
-            console.log('Generating report for type:', reportType);
-            generateReport();
-        } else {
-            console.error('Report section not found:', reportType);
-        }
-    }
+        document.getElementById(reportType).style.display = 'block';
 
-    // Initialize date-time range with current day
-    document.addEventListener('DOMContentLoaded', function() {
-        // Set date range to include all passes (2024-04-23)
-        const startDate = new Date('2024-04-01');
-        const endDate = new Date('2024-12-31');
-        
-        document.getElementById('startDateTime').value = startDate.toISOString().slice(0, 16);
-        document.getElementById('endDateTime').value = endDate.toISOString().slice(0, 16);
-        
-        // Show vehicle in report by default
-        showReport('vehicle-in');
-    });
+        // Generate report for the selected type
+        generateReport();
+    }
 
     function generateReport() {
         const startDateTime = document.getElementById('startDateTime').value;
         const endDateTime = document.getElementById('endDateTime').value;
         
-        // Convert to date-only format (YYYY-MM-DD)
-        const startDate = new Date(startDateTime).toISOString().split('T')[0];
-        const endDate = new Date(endDateTime).toISOString().split('T')[0];
-        
-        console.log('Generating report with date range:', { startDate, endDate });
-        console.log('Current report type:', currentReportType);
-        
         switch(currentReportType) {
+            case 'dashboard':
+                fetchDashboardData(startDateTime, endDateTime);
+                break;
             case 'vehicle-in':
-                console.log('Fetching vehicle-in data...');
-                fetch(`/api/analytics/vehicle-in?start_date=${startDate}&end_date=${endDate}`)
-                    .then(response => {
-                        console.log('Vehicle-in response status:', response.status);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Vehicle-in data:', data);
-                        updateVehicleInTable(data);
-                        document.getElementById('vehicleInCount').textContent = `${data.length} records`;
-                    })
-                    .catch(error => {
-                        console.error('Error fetching vehicle-in data:', error);
-                    });
+                fetchVehicleInData(startDateTime, endDateTime);
                 break;
-                
             case 'vehicle-out':
-                console.log('Fetching vehicle-out data...');
-                fetch(`/api/analytics/vehicle-out?start_date=${startDate}&end_date=${endDate}`)
-                    .then(response => {
-                        console.log('Vehicle-out response status:', response.status);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Vehicle-out data:', data);
-                        updateVehicleOutTable(data);
-                        document.getElementById('vehicleOutCount').textContent = `${data.length} records`;
-                    })
-                    .catch(error => {
-                        console.error('Error fetching vehicle-out data:', error);
-                    });
+                fetchVehicleOutData(startDateTime, endDateTime);
                 break;
-                
             case 'overnight':
-                console.log('Fetching overnight passes data...');
-                fetch(`/api/analytics/overnight-passes?start_date=${startDate}&end_date=${endDate}`)
-                    .then(response => {
-                        console.log('Overnight passes response status:', response.status);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Overnight passes data:', data);
-                        if (data.passes) {
-                            updateOvernightTable(data.passes);
-                            updateOvernightSummary(data.summary);
-                            document.getElementById('overnightCount').textContent = `${data.summary.total_passes} records`;
-                        } else {
-                            console.error('No passes data in response:', data);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching overnight passes:', error);
-                    });
+                fetchOvernightData(startDateTime, endDateTime);
                 break;
-                
-            case 'summary':
-                console.log('Fetching summary data...');
-                fetch(`/api/analytics/summary?start_date=${startDate}&end_date=${endDate}`)
-                    .then(response => {
-                        console.log('Summary response status:', response.status);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Summary data:', data);
-                        document.getElementById('totalRevenue').textContent = data.total_revenue.toFixed(2);
-                        document.getElementById('totalVehicles').textContent = data.total_vehicles;
-                        document.getElementById('overnightVehicles').textContent = data.overnight_vehicles;
-                        document.getElementById('avgStayDuration').textContent = data.avg_stay_duration.toFixed(1);
-                    })
-                    .catch(error => {
-                        console.error('Error fetching summary data:', error);
-                    });
+            case 'analytics':
+                fetchAnalyticsData(startDateTime, endDateTime);
                 break;
         }
     }
 
-    function updateVehicleInTable(data) {
-        const tbody = document.querySelector('#vehicleInTable tbody');
-        tbody.innerHTML = '';
-        data.forEach(vehicle => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${vehicle.vehicle_number}</td>
-                    <td>${vehicle.category}</td>
-                    <td>${new Date(vehicle.entry_time).toLocaleString()}</td>
-                    <td>${vehicle.location}</td>
-                    <td><span class="status-active">Active</span></td>
-                </tr>
-            `;
+    function fetchDashboardData(startDateTime, endDateTime) {
+        // Fetch summary data
+        fetch(`/api/analytics/summary?start_date=${startDateTime}&end_date=${endDateTime}`)
+            .then(response => response.json())
+            .then(data => {
+                updateSummaryCards(data);
+            });
+
+        // Fetch revenue by type
+        fetch(`/api/analytics/revenue-by-type?start_date=${startDateTime}&end_date=${endDateTime}`)
+            .then(response => response.json())
+            .then(data => {
+                updateRevenueByTypeChart(data);
+            });
+
+        // Fetch vehicle distribution
+        fetch(`/api/analytics/vehicle-distribution?start_date=${startDateTime}&end_date=${endDateTime}`)
+            .then(response => response.json())
+            .then(data => {
+                updateVehicleDistributionChart(data);
+            });
+
+        // Fetch recent activity
+        fetch(`/api/analytics/recent-activity?start_date=${startDateTime}&end_date=${endDateTime}`)
+            .then(response => response.json())
+            .then(data => {
+                updateRecentActivity(data);
+            });
+    }
+
+    function updateSummaryCards(data) {
+        document.getElementById('totalRevenue').textContent = data.total_revenue.toFixed(2);
+        document.getElementById('totalVehicles').textContent = data.total_vehicles;
+        document.getElementById('overnightVehicles').textContent = data.overnight_vehicles;
+        document.getElementById('avgStayDuration').textContent = data.avg_stay_duration.toFixed(1);
+    }
+
+    function updateRevenueByTypeChart(data) {
+        const ctx = document.getElementById('revenueByTypeChart').getContext('2d');
+        if (charts.revenueByType) {
+            charts.revenueByType.destroy();
+        }
+        charts.revenueByType = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Revenue',
+                    data: data.values,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
         });
     }
 
-    function updateVehicleOutTable(data) {
-        const tbody = document.querySelector('#vehicleOutTable tbody');
-        tbody.innerHTML = '';
-        data.forEach(vehicle => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${vehicle.vehicle_number}</td>
-                    <td>${vehicle.category}</td>
-                    <td>${new Date(vehicle.exit_time).toLocaleString()}</td>
-                    <td>₹${vehicle.amount.toFixed(2)}</td>
-                    <td><span class="status-active">${vehicle.payment_status}</span></td>
-                </tr>
-            `;
+    function updateVehicleDistributionChart(data) {
+        const ctx = document.getElementById('vehicleDistributionChart').getContext('2d');
+        if (charts.vehicleDistribution) {
+            charts.vehicleDistribution.destroy();
+        }
+        charts.vehicleDistribution = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(75, 192, 192, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true
+            }
         });
     }
 
-    function updateOvernightTable(data) {
-        const tbody = document.querySelector('#overnightTable tbody');
-        tbody.innerHTML = '';
+    function updateRecentActivity(data) {
+        const container = document.getElementById('recentActivity');
+        container.innerHTML = '';
+        
+        data.forEach(activity => {
+            const activityItem = document.createElement('div');
+            activityItem.className = 'activity-item';
+            activityItem.innerHTML = `
+                <div class="activity-icon ${activity.type}">
+                    <i class="fas ${getActivityIcon(activity.type)}"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">${activity.title}</div>
+                    <div class="activity-time">${new Date(activity.time).toLocaleString()}</div>
+                </div>
+            `;
+            container.appendChild(activityItem);
+        });
+    }
+
+    function getActivityIcon(type) {
+        switch(type) {
+            case 'entry': return 'fa-sign-in-alt';
+            case 'exit': return 'fa-sign-out-alt';
+            case 'overnight': return 'fa-moon';
+            default: return 'fa-info-circle';
+        }
+    }
+
+    function fetchVehicleInData(startDateTime, endDateTime) {
+        // Convert datetime-local to ISO format
+        const startDate = new Date(startDateTime).toISOString();
+        const endDate = new Date(endDateTime).toISOString();
+        
+        console.log('Fetching vehicle in data with date range:', { startDate, endDate });
+        
+        // Show loading state
+        document.getElementById('vehicleInCards').innerHTML = `
+            <div class="col-12 text-center">
+                <p>Loading vehicle entries...</p>
+            </div>
+        `;
+        
+        fetch(`/api/analytics/vehicle-in?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(response => {
+                console.log('API Response:', response);
+                
+                if (response.status === 'error') {
+                    console.error('Error fetching vehicle in data:', response.message);
+                    document.getElementById('vehicleInCards').innerHTML = `
+                        <div class="col-12 text-center">
+                            <p class="text-danger">${response.message}</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const data = response.data || [];
+                updateVehicleInCards(data);
+                document.getElementById('vehicleInCount').textContent = `${data.length} records`;
+            })
+            .catch(error => {
+                console.error('Error fetching vehicle in data:', error);
+                document.getElementById('vehicleInCards').innerHTML = `
+                    <div class="col-12 text-center">
+                        <p class="text-danger">Error loading vehicle in data: ${error.message}</p>
+                    </div>
+                `;
+            });
+    }
+
+    function updateVehicleInCards(data) {
+        const container = document.getElementById('vehicleInCards');
+        container.innerHTML = '';
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center"><p>No vehicle entries found for the selected period.</p></div>';
+            return;
+        }
+        
+        data.forEach(vehicle => {
+            console.log('Processing vehicle:', vehicle);
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+                <div class="report-card">
+                    <div class="card-body">
+                        <div class="vehicle-info">
+                            <div class="vehicle-icon">
+                                <i class="fas fa-car"></i>
+                            </div>
+                            <div class="vehicle-details">
+                                <div class="vehicle-number">${vehicle.vehicle_number || 'N/A'}</div>
+                                <div class="vehicle-category">${vehicle.vehicle_type || 'N/A'}</div>
+                            </div>
+                        </div>
+                        <div class="vehicle-time">
+                            <div class="time-info">
+                                <div class="time-label">Entry Time</div>
+                                <div class="time-value">${new Date(vehicle.entry_time).toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div class="vehicle-location">
+                            <i class="fas fa-map-marker-alt"></i>
+                            ${vehicle.location || 'N/A'}
+                        </div>
+                        <div class="mt-3">
+                            <span class="vehicle-status status-active">Active</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function fetchVehicleOutData(startDateTime, endDateTime) {
+        // Convert datetime-local to ISO format
+        const startDate = new Date(startDateTime).toISOString();
+        const endDate = new Date(endDateTime).toISOString();
+        
+        fetch(`/api/analytics/vehicle-out?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Vehicle Out Data:', data); // Debug log
+                if (data.status === 'error') {
+                    console.error('Error fetching vehicle out data:', data.message);
+                    return;
+                }
+                updateVehicleOutCards(data);
+                document.getElementById('vehicleOutCount').textContent = `${data.length} records`;
+            })
+            .catch(error => {
+                console.error('Error fetching vehicle out data:', error);
+                document.getElementById('vehicleOutCards').innerHTML = `
+                    <div class="col-12 text-center">
+                        <p class="text-danger">Error loading vehicle out data. Please try again.</p>
+                    </div>
+                `;
+            });
+    }
+
+    function fetchOvernightData(startDateTime, endDateTime) {
+        // Convert datetime-local to ISO format
+        const startDate = new Date(startDateTime).toISOString();
+        const endDate = new Date(endDateTime).toISOString();
+        
+        fetch(`/api/analytics/overnight-passes?start_date=${startDate}&end_date=${endDate}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Overnight Data:', data); // Debug log
+                if (data.status === 'error') {
+                    console.error('Error fetching overnight data:', data.message);
+                    return;
+                }
+                if (data.passes) {
+                    updateOvernightCards(data.passes);
+                    document.getElementById('overnightCount').textContent = `${data.summary.total_passes} records`;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching overnight data:', error);
+                document.getElementById('overnightCards').innerHTML = `
+                    <div class="col-12 text-center">
+                        <p class="text-danger">Error loading overnight data. Please try again.</p>
+                    </div>
+                `;
+            });
+    }
+
+    function fetchAnalyticsData(startDateTime, endDateTime) {
+        // Fetch hourly traffic
+        fetch(`/api/analytics/hourly-traffic?start_date=${startDateTime}&end_date=${endDateTime}`)
+            .then(response => response.json())
+            .then(data => {
+                updateHourlyTrafficChart(data);
+            });
+
+        // Fetch daily revenue
+        fetch(`/api/analytics/daily-revenue?start_date=${startDateTime}&end_date=${endDateTime}`)
+            .then(response => response.json())
+            .then(data => {
+                updateDailyRevenueChart(data);
+            });
+
+        // Fetch vehicle type distribution
+        fetch(`/api/analytics/vehicle-type-distribution?start_date=${startDateTime}&end_date=${endDateTime}`)
+            .then(response => response.json())
+            .then(data => {
+                updateVehicleTypeChart(data);
+            });
+
+        // Fetch payment method distribution
+        fetch(`/api/analytics/payment-method-distribution?start_date=${startDateTime}&end_date=${endDateTime}`)
+            .then(response => response.json())
+            .then(data => {
+                updatePaymentMethodChart(data);
+            });
+    }
+
+    function updateHourlyTrafficChart(data) {
+        const ctx = document.getElementById('hourlyTrafficChart').getContext('2d');
+        if (charts.hourlyTraffic) {
+            charts.hourlyTraffic.destroy();
+        }
+        charts.hourlyTraffic = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Vehicle Count',
+                    data: data.values,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function updateDailyRevenueChart(data) {
+        const ctx = document.getElementById('dailyRevenueChart').getContext('2d');
+        if (charts.dailyRevenue) {
+            charts.dailyRevenue.destroy();
+        }
+        charts.dailyRevenue = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Revenue',
+                    data: data.values,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function updateVehicleTypeChart(data) {
+        const ctx = document.getElementById('vehicleTypeChart').getContext('2d');
+        if (charts.vehicleType) {
+            charts.vehicleType.destroy();
+        }
+        charts.vehicleType = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(75, 192, 192, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true
+            }
+        });
+    }
+
+    function updatePaymentMethodChart(data) {
+        const ctx = document.getElementById('paymentMethodChart').getContext('2d');
+        if (charts.paymentMethod) {
+            charts.paymentMethod.destroy();
+        }
+        charts.paymentMethod = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(75, 192, 192, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true
+            }
+        });
+    }
+
+    function updateVehicleOutCards(data) {
+        const container = document.getElementById('vehicleOutCards');
+        container.innerHTML = '';
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center"><p>No vehicle exits found for the selected period.</p></div>';
+            return;
+        }
+        
+        data.forEach(vehicle => {
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+                <div class="report-card">
+                    <div class="card-body">
+                        <div class="vehicle-info">
+                            <div class="vehicle-icon">
+                                <i class="fas fa-car"></i>
+                            </div>
+                            <div class="vehicle-details">
+                                <div class="vehicle-number">${vehicle.vehicle_number || 'N/A'}</div>
+                                <div class="vehicle-category">${vehicle.vehicle_type || 'N/A'}</div>
+                            </div>
+                        </div>
+                        <div class="vehicle-time">
+                            <div class="time-info">
+                                <div class="time-label">Exit Time</div>
+                                <div class="time-value">${new Date(vehicle.exit_time).toLocaleString()}</div>
+                            </div>
+                            <div class="vehicle-amount">
+                                ₹${(vehicle.amount_paid || 0).toFixed(2)}
+                            </div>
+                        </div>
+                        <div class="vehicle-location">
+                            <i class="fas fa-map-marker-alt"></i>
+                            ${vehicle.location || 'N/A'}
+                        </div>
+                        <div class="mt-3">
+                            <span class="vehicle-status status-completed">Completed</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function updateOvernightCards(data) {
+        const container = document.getElementById('overnightCards');
+        container.innerHTML = '';
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center"><p>No overnight passes found for the selected period.</p></div>';
+            return;
+        }
+        
         data.forEach(pass => {
-            const createdAt = new Date(pass.created_at).toLocaleString();
-            const statusClass = pass.status === 'active' ? 'status-active' : 'status-inactive';
-            
-            tbody.innerHTML += `
-                <tr>
-                    <td>${pass.name}</td>
-                    <td>${pass.vehicle_category}</td>
-                    <td>₹${pass.amount.toFixed(2)}</td>
-                    <td>${pass.validity_days} days</td>
-                    <td>${pass.location}</td>
-                    <td>${pass.site}</td>
-                    <td>${pass.device_id}</td>
-                    <td>${createdAt}</td>
-                    <td><span class="${statusClass}">${pass.status}</span></td>
-                </tr>
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+                <div class="report-card">
+                    <div class="card-body">
+                        <div class="vehicle-info">
+                            <div class="vehicle-icon">
+                                <i class="fas fa-moon"></i>
+                            </div>
+                            <div class="vehicle-details">
+                                <div class="vehicle-number">${pass.name || 'N/A'}</div>
+                                <div class="vehicle-category">${pass.vehicle_category || 'N/A'}</div>
+                            </div>
+                        </div>
+                        <div class="vehicle-time">
+                            <div class="time-info">
+                                <div class="time-label">Created At</div>
+                                <div class="time-value">${new Date(pass.created_at).toLocaleString()}</div>
+                            </div>
+                            <div class="vehicle-amount">
+                                ₹${(pass.amount || 0).toFixed(2)}
+                            </div>
+                        </div>
+                        <div class="vehicle-location">
+                            <i class="fas fa-map-marker-alt"></i>
+                            ${pass.location || 'N/A'} - ${pass.site || 'N/A'}
+                        </div>
+                        <div class="mt-3">
+                            <span class="vehicle-status ${pass.status === 'active' ? 'status-active' : 'status-completed'}">${pass.status || 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
             `;
+            container.appendChild(card);
         });
     }
 
-    function updateOvernightSummary(data) {
-        // Update today's count and amount
-        document.getElementById('todayCount').textContent = data.today?.count || 0;
-        document.getElementById('todayAmount').textContent = (data.today?.amount || 0).toFixed(2);
-
-        // Update yesterday's count and amount
-        document.getElementById('yesterdayCount').textContent = data.yesterday?.count || 0;
-        document.getElementById('yesterdayAmount').textContent = (data.yesterday?.amount || 0).toFixed(2);
-
-        // Update last 7 days count and amount
-        document.getElementById('weekCount').textContent = data.week?.count || 0;
-        document.getElementById('weekAmount').textContent = (data.week?.amount || 0).toFixed(2);
-
-        // Update last 30 days count and amount
-        document.getElementById('monthCount').textContent = data.month?.count || 0;
-        document.getElementById('monthAmount').textContent = (data.month?.amount || 0).toFixed(2);
-    }
-
-    function exportReport(reportType) {
+    function exportReport(type) {
         const startDateTime = document.getElementById('startDateTime').value;
         const endDateTime = document.getElementById('endDateTime').value;
-        
-        const link = document.createElement('a');
-        link.href = `/api/reports/export?type=${reportType}&start_date=${startDateTime}&end_date=${endDateTime}`;
-        link.download = `${reportType}-report.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.location.href = `/api/reports/export?type=${type}&start_date=${startDateTime}&end_date=${endDateTime}`;
     }
 
-    function printReport(reportType) {
+    function printReport(type) {
+        const printContent = document.getElementById(type).innerHTML;
+        const originalContent = document.body.innerHTML;
+        
+        document.body.innerHTML = `
+            <div class="container">
+                <h2 class="text-center mb-4">${type.charAt(0).toUpperCase() + type.slice(1)} Report</h2>
+                ${printContent}
+            </div>
+        `;
+        
         window.print();
+        document.body.innerHTML = originalContent;
+        
+        // Reattach event listeners
+        showReport(type);
     }
 </script>
 {% endblock %} 

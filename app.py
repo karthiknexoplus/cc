@@ -151,6 +151,9 @@ class VehicleEntry(db.Model):
     payment_status = db.Column(db.String(20), default='pending')  # pending, paid, failed
     payment_method = db.Column(db.String(20))  # cash, upi, card
     payment_reference = db.Column(db.String(100))  # UPI reference, card number, etc.
+    device_id = db.Column(db.String(3))  # Device ID from the entry
+    location = db.Column(db.String(100))  # Location from the entry
+    site = db.Column(db.String(100))  # Site from the entry
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
@@ -174,9 +177,9 @@ class OvernightPass(db.Model):
     status = db.Column(db.String(20), default='active')
     vehicle_category_id = db.Column(db.Integer, db.ForeignKey('vehicle_category.id'), nullable=False)
     transaction_id = db.Column(db.String(50), unique=True, nullable=False)
-    device_id = db.Column(db.String(3), nullable=False)
-    location = db.Column(db.String(100), nullable=False)
-    site = db.Column(db.String(100), nullable=False)
+    device_id = db.Column(db.String(3), nullable=False)  # Device ID from the entry
+    location = db.Column(db.String(100), nullable=False)  # Location from the entry
+    site = db.Column(db.String(100), nullable=False)  # Site from the entry
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
@@ -238,69 +241,143 @@ def signup():
 def dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
-    # Get counts from database
-    locations_count = Location.query.count()
-    sites_count = Site.query.count()
-    devices_count = Device.query.count()
-    vehicle_categories_count = VehicleCategory.query.count()
 
-    # Get recent activities
-    recent_activities = []
+    # Get filter parameters from request
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+    device_id = request.args.get('device_id')
+    site = request.args.get('site')
+
+    # Parse dates if provided, otherwise use today's date
+    if from_date and to_date:
+        try:
+            from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+        except ValueError:
+            # If date parsing fails, use today's date
+            today = datetime.now().date()
+            from_date = datetime.combine(today, datetime.min.time())
+            to_date = datetime.combine(today, datetime.max.time())
+    else:
+        # Use today's date if no parameters provided
+        today = datetime.now().date()
+        from_date = datetime.combine(today, datetime.min.time())
+        to_date = datetime.combine(today, datetime.max.time())
+
+    # Base query for entries
+    entries_query = VehicleEntry.query.filter(
+        VehicleEntry.entry_time >= from_date,
+        VehicleEntry.entry_time <= to_date
+    )
+
+    # Apply device ID filter if provided
+    if device_id:
+        entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+
+    # Apply site filter if provided
+    if site:
+        entries_query = entries_query.filter(VehicleEntry.site == site)
+
+    # Get entries within date range and filters
+    entries = entries_query.all()
+
+    # Calculate statistics
+    today_entries = len(entries)
+    active_vehicles = len([e for e in entries if e.exit_time is None])
+    today_revenue = sum(e.amount_paid or 0 for e in entries)
+    today_exits = len([e for e in entries if e.exit_time is not None])
+
+    # Get overnight passes within date range and filters
+    overnight_query = OvernightPass.query.filter(
+        OvernightPass.created_at >= from_date,
+        OvernightPass.created_at <= to_date,
+        OvernightPass.status == 'active'
+    )
+
+    # Apply device ID filter to overnight passes if provided
+    if device_id:
+        overnight_query = overnight_query.filter(OvernightPass.device_id == device_id)
+
+    # Apply site filter to overnight passes if provided
+    if site:
+        overnight_query = overnight_query.filter(OvernightPass.site == site)
+
+    overnight_passes = overnight_query.all()
+    overnight_vehicles = len(overnight_passes)
+
+    # Get recent entries (last 10) with filters and convert to dictionaries
+    recent_entries = entries_query.order_by(VehicleEntry.entry_time.desc()).limit(10).all()
+    recent_entries_dict = [{
+        'vehicle_number': entry.vehicle_number,
+        'vehicle_type': entry.vehicle_type,
+        'entry_time': entry.entry_time.strftime('%Y-%m-%d %H:%M:%S'),
+        'location': entry.location,
+        'site': entry.site,
+        'device_id': entry.device_id,
+        'exit_time': entry.exit_time.strftime('%Y-%m-%d %H:%M:%S') if entry.exit_time else None,
+        'amount_paid': entry.amount_paid,
+        'payment_method': entry.payment_method,
+        'payment_status': entry.payment_status
+    } for entry in recent_entries]
+
+    # Get unique device IDs and sites for filter dropdowns
+    device_ids = db.session.query(VehicleEntry.device_id).distinct().all()
+    device_ids = [d[0] for d in device_ids if d[0]]  # Remove None values
+
+    sites = db.session.query(VehicleEntry.site).distinct().all()
+    sites = [s[0] for s in sites if s[0]]  # Remove None values
+
+    # Prepare data for entry distribution chart
+    entry_hours = []
+    entry_counts = []
+    hourly_revenue = []
     
-    # Add recent locations
-    recent_locations = Location.query.order_by(Location.created_at.desc()).limit(3).all()
-    for loc in recent_locations:
-        recent_activities.append({
-            'icon': 'fas fa-map-marker-alt',
-            'icon_bg': 'rgba(26, 35, 126, 0.1)',
-            'icon_color': '#1a237e',
-            'title': f'New location added: {loc.name}',
-            'time': loc.created_at.strftime('%b %d, %Y %I:%M %p')
-        })
+    # Group entries by hour
+    for hour in range(24):
+        hour_start = datetime.combine(from_date.date(), datetime.min.time()) + timedelta(hours=hour)
+        hour_end = hour_start + timedelta(hours=1)
+        
+        hour_entries = [e for e in entries if hour_start <= e.entry_time < hour_end]
+        count = len(hour_entries)
+        revenue = sum(e.amount_paid or 0 for e in hour_entries)
+        
+        entry_hours.append(f"{hour:02d}:00")
+        entry_counts.append(count)
+        hourly_revenue.append(revenue)
 
-    # Add recent sites
-    recent_sites = Site.query.order_by(Site.created_at.desc()).limit(3).all()
-    for site in recent_sites:
-        recent_activities.append({
-            'icon': 'fas fa-building',
-            'icon_bg': 'rgba(33, 150, 243, 0.1)',
-            'icon_color': '#2196f3',
-            'title': f'New site added: {site.name} at {site.location.name}',
-            'time': site.created_at.strftime('%b %d, %Y %I:%M %p')
-        })
+    # Calculate payment method distribution
+    payment_methods = {}
+    for entry in entries:
+        if entry.amount_paid:
+            method = entry.payment_method or 'unknown'
+            payment_methods[method] = payment_methods.get(method, 0) + entry.amount_paid
 
-    # Add recent devices
-    recent_devices = Device.query.order_by(Device.created_at.desc()).limit(3).all()
-    for device in recent_devices:
-        recent_activities.append({
-            'icon': 'fas fa-microchip',
-            'icon_bg': 'rgba(76, 175, 80, 0.1)',
-            'icon_color': '#4caf50',
-            'title': f'New device added: {device.device_id} at {device.site.name}',
-            'time': device.created_at.strftime('%b %d, %Y %I:%M %p')
-        })
-
-    # Add recent vehicle categories
-    recent_categories = VehicleCategory.query.order_by(VehicleCategory.created_at.desc()).limit(3).all()
-    for category in recent_categories:
-        recent_activities.append({
-            'icon': 'fas fa-car',
-            'icon_bg': 'rgba(255, 152, 0, 0.1)',
-            'icon_color': '#ff9800',
-            'title': f'New vehicle category added: {category.name}',
-            'time': category.created_at.strftime('%b %d, %Y %I:%M %p')
-        })
-
-    # Sort activities by time
-    recent_activities.sort(key=lambda x: x['time'], reverse=True)
-    recent_activities = recent_activities[:5]  # Show only 5 most recent activities
+    # Calculate vehicle type distribution
+    vehicle_types = {}
+    for entry in entries:
+        vehicle_type = entry.vehicle_type
+        vehicle_types[vehicle_type] = vehicle_types.get(vehicle_type, 0) + 1
 
     return render_template('dashboard.html',
-                         locations_count=locations_count,
-                         sites_count=sites_count,
-                         devices_count=devices_count,
-                         vehicle_categories_count=vehicle_categories_count,
-                         recent_activities=recent_activities)
+                         today_entries=today_entries,
+                         active_vehicles=active_vehicles,
+                         today_revenue=today_revenue,
+                         overnight_vehicles=overnight_vehicles,
+                         today_exits=today_exits,
+                         recent_entries=recent_entries_dict,
+                         entry_hours=entry_hours,
+                         entry_counts=entry_counts,
+                         hourly_revenue=hourly_revenue,
+                         payment_methods=list(payment_methods.keys()),
+                         payment_amounts=list(payment_methods.values()),
+                         vehicle_types=list(vehicle_types.keys()),
+                         vehicle_type_counts=list(vehicle_types.values()),
+                         from_date=from_date.strftime('%Y-%m-%dT%H:%M'),
+                         to_date=to_date.strftime('%Y-%m-%dT%H:%M'),
+                         device_ids=device_ids,
+                         sites=sites,
+                         selected_device_id=device_id,
+                         selected_site=site)
 
 @app.route('/locations')
 def locations():
@@ -1084,8 +1161,20 @@ def vehicle_entry():
     try:
         data = request.get_json()
         
+        # Log the incoming data
+        logger.info("Received vehicle entry data:")
+        logger.info(f"Vehicle Number: {data.get('vehicleNumber')}")
+        logger.info(f"Vehicle Type: {data.get('vehicleType')}")
+        logger.info(f"Transaction ID: {data.get('transactionId')}")
+        logger.info(f"Entry Time: {data.get('entryTime')}")
+        logger.info(f"Device ID: {data.get('deviceId')}")
+        logger.info(f"Location: {data.get('location')}")
+        logger.info(f"Site: {data.get('site')}")
+        logger.info(f"Status: {data.get('status')}")
+        logger.info(f"Is Synced: {data.get('isSynced')}")
+        
         # Validate required fields
-        required_fields = ['vehicleNumber', 'vehicleType', 'transactionId', 'entryTime']
+        required_fields = ['vehicleNumber', 'vehicleType', 'transactionId', 'entryTime', 'deviceId']
         for field in required_fields:
             if field not in data:
                 return jsonify({
@@ -1101,18 +1190,56 @@ def vehicle_entry():
                 'message': 'Transaction ID already exists'
             }), 409
 
+        # Parse entry time with multiple format support
+        entry_time = None
+        try:
+            # Try parsing as ISO format first
+            entry_time_str = data['entryTime']
+            if 'Z' in entry_time_str:
+                entry_time = datetime.fromisoformat(entry_time_str.replace('Z', '+00:00'))
+            elif '+' in entry_time_str or '-' in entry_time_str[-6:]:
+                entry_time = datetime.fromisoformat(entry_time_str)
+            else:
+                # If no timezone indicator, assume local timezone
+                entry_time = datetime.strptime(entry_time_str, '%Y-%m-%dT%H:%M:%S')
+        except ValueError:
+            try:
+                # Try parsing as "MMM DD, YYYY HH:MM:SS AM/PM" format
+                entry_time = datetime.strptime(data['entryTime'], '%b %d, %Y %I:%M:%S %p')
+            except ValueError:
+                try:
+                    # Try parsing as "YYYY-MM-DD HH:MM:SS" format
+                    entry_time = datetime.strptime(data['entryTime'], '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'Invalid date format: {data["entryTime"]}. Supported formats: ISO (with or without timezone), "MMM DD, YYYY HH:MM:SS AM/PM", "YYYY-MM-DD HH:MM:SS"'
+                    }), 400
+
         # Create new vehicle entry
         new_entry = VehicleEntry(
             vehicle_number=data['vehicleNumber'],
             vehicle_type=data['vehicleType'],
             transaction_id=data['transactionId'],
-            entry_time=datetime.fromisoformat(data['entryTime'].replace('Z', '+00:00')),
-            qr_code=data.get('qrCode')
+            entry_time=entry_time,
+            qr_code=data.get('qrCode'),
+            device_id=data['deviceId'],
+            location=data.get('location', 'Kodaikanal'),
+            site=data.get('site', 'Main Parking')
         )
 
         db.session.add(new_entry)
         db.session.commit()
 
+        # Log the created entry
+        logger.info("Created new vehicle entry:")
+        logger.info(f"ID: {new_entry.id}")
+        logger.info(f"Vehicle Number: {new_entry.vehicle_number}")
+        logger.info(f"Device ID: {new_entry.device_id}")
+        logger.info(f"Location: {new_entry.location}")
+        logger.info(f"Site: {new_entry.site}")
+
+        # Return response with ISO format date including timezone
         return jsonify({
             'status': 'success',
             'message': 'Vehicle entry recorded successfully',
@@ -1121,510 +1248,20 @@ def vehicle_entry():
                 'vehicleNumber': new_entry.vehicle_number,
                 'vehicleType': new_entry.vehicle_type,
                 'transactionId': new_entry.transaction_id,
-                'entryTime': new_entry.entry_time.isoformat(),
-                'qrCode': new_entry.qr_code
+                'entryTime': new_entry.entry_time.isoformat() + 'Z',
+                'qrCode': new_entry.qr_code,
+                'deviceId': new_entry.device_id,
+                'location': new_entry.location,
+                'site': new_entry.site
             }
         }), 201
 
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Error processing vehicle entry: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': f'Error processing vehicle entry: {str(e)}'
-        }), 500
-
-@app.route('/api/vehicle-out', methods=['POST'])
-def vehicle_exit():
-    try:
-        data = request.get_json()
-        
-        # Validate required fields
-        required_fields = ['transactionId', 'exitTime']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({
-                    'status': 'error',
-                    'message': f'Missing required field: {field}'
-                }), 400
-
-        # Find the vehicle entry
-        vehicle_entry = VehicleEntry.query.filter_by(transaction_id=data['transactionId']).first()
-        if not vehicle_entry:
-            return jsonify({
-                'status': 'error',
-                'message': 'Transaction ID not found'
-            }), 404
-
-        # Check if vehicle has already exited
-        if vehicle_entry.exit_time:
-            return jsonify({
-                'status': 'error',
-                'message': 'Vehicle has already exited'
-            }), 409
-
-        # Update vehicle entry with exit information
-        vehicle_entry.exit_time = datetime.fromisoformat(data['exitTime'].replace('Z', '+00:00'))
-        
-        # Update payment information if provided
-        if 'amountPaid' in data:
-            vehicle_entry.amount_paid = data['amountPaid']
-        if 'paymentStatus' in data:
-            vehicle_entry.payment_status = data['paymentStatus']
-        if 'paymentMethod' in data:
-            vehicle_entry.payment_method = data['paymentMethod']
-        if 'paymentReference' in data:
-            vehicle_entry.payment_reference = data['paymentReference']
-
-        db.session.commit()
-
-        return jsonify({
-            'status': 'success',
-            'message': 'Vehicle exit recorded successfully',
-            'data': {
-                'id': vehicle_entry.id,
-                'vehicleNumber': vehicle_entry.vehicle_number,
-                'vehicleType': vehicle_entry.vehicle_type,
-                'transactionId': vehicle_entry.transaction_id,
-                'entryTime': vehicle_entry.entry_time.isoformat(),
-                'exitTime': vehicle_entry.exit_time.isoformat(),
-                'amountPaid': vehicle_entry.amount_paid,
-                'paymentStatus': vehicle_entry.payment_status,
-                'paymentMethod': vehicle_entry.payment_method,
-                'paymentReference': vehicle_entry.payment_reference
-            }
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'status': 'error',
-            'message': f'Error processing vehicle exit: {str(e)}'
-        }), 500
-
-def calculate_avg_stay_duration(transactions):
-    if not transactions:
-        return 0
-    
-    total_duration = sum(
-        ((t.exit_time or datetime.now()) - t.entry_time).total_seconds() / 60
-        for t in transactions
-    )
-    return round(total_duration / len(transactions), 2)
-
-def calculate_occupancy_rate(transactions, location_id):
-    if not location_id:
-        return 0
-    
-    location = Location.query.get(location_id)
-    if not location:
-        return 0
-    
-    total_spaces = location.total_spaces
-    if total_spaces == 0:
-        return 0
-    
-    # Calculate average occupancy for the time period
-    occupied_spaces = len(transactions)
-    return round((occupied_spaces / total_spaces) * 100, 2)
-
-def generate_revenue_by_category_chart(transactions):
-    # Group transactions by vehicle category and calculate total revenue
-    category_revenue = {}
-    for t in transactions:
-        category = VehicleCategory.query.get(t.vehicle_category_id)
-        if category:
-            category_name = category.name
-            category_revenue[category_name] = category_revenue.get(category_name, 0) + (t.amount_paid or 0)
-
-    return {
-        'type': 'pie',
-        'data': {
-            'labels': list(category_revenue.keys()),
-            'datasets': [{
-                'data': list(category_revenue.values()),
-                'backgroundColor': ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
-            }]
-        }
-    }
-
-def generate_revenue_by_payment_chart(transactions):
-    # Group transactions by payment method and calculate total revenue
-    payment_revenue = {}
-    for t in transactions:
-        if t.payment_method:
-            payment_revenue[t.payment_method] = payment_revenue.get(t.payment_method, 0) + (t.amount_paid or 0)
-
-    return {
-        'type': 'doughnut',
-        'data': {
-            'labels': list(payment_revenue.keys()),
-            'datasets': [{
-                'data': list(payment_revenue.values()),
-                'backgroundColor': ['#FF6384', '#36A2EB', '#FFCE56']
-            }]
-        }
-    }
-
-def generate_transactions_by_hour_chart(transactions):
-    # Group transactions by hour
-    hourly_transactions = [0] * 24
-    for t in transactions:
-        hour = t.entry_time.hour
-        hourly_transactions[hour] += 1
-
-    return {
-        'type': 'line',
-        'data': {
-            'labels': [f'{i}:00' for i in range(24)],
-            'datasets': [{
-                'label': 'Transactions',
-                'data': hourly_transactions,
-                'borderColor': '#36A2EB',
-                'tension': 0.1
-            }]
-        }
-    }
-
-def generate_transactions_by_day_chart(transactions):
-    # Group transactions by day of week
-    daily_transactions = [0] * 7
-    for t in transactions:
-        day = t.entry_time.weekday()
-        daily_transactions[day] += 1
-
-    return {
-        'type': 'bar',
-        'data': {
-            'labels': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            'datasets': [{
-                'label': 'Transactions',
-                'data': daily_transactions,
-                'backgroundColor': '#36A2EB'
-            }]
-        }
-    }
-
-def generate_vehicle_category_chart(transactions):
-    # Count transactions by vehicle category
-    category_counts = {}
-    for t in transactions:
-        category = VehicleCategory.query.get(t.vehicle_category_id)
-        if category:
-            category_name = category.name
-            category_counts[category_name] = category_counts.get(category_name, 0) + 1
-
-    return {
-        'type': 'pie',
-        'data': {
-            'labels': list(category_counts.keys()),
-            'datasets': [{
-                'data': list(category_counts.values()),
-                'backgroundColor': ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
-            }]
-        }
-    }
-
-def generate_top_vehicles_chart(transactions):
-    # Count transactions by vehicle number
-    vehicle_counts = {}
-    for t in transactions:
-        vehicle_counts[t.vehicle_number] = vehicle_counts.get(t.vehicle_number, 0) + 1
-
-    # Get top 10 vehicles
-    top_vehicles = sorted(vehicle_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-
-    return {
-        'type': 'bar',
-        'data': {
-            'labels': [v[0] for v in top_vehicles],
-            'datasets': [{
-                'label': 'Number of Visits',
-                'data': [v[1] for v in top_vehicles],
-                'backgroundColor': '#36A2EB'
-            }]
-        }
-    }
-
-def generate_revenue_by_location_chart(transactions):
-    # Group transactions by location and calculate total revenue
-    location_revenue = {}
-    for t in transactions:
-        device = Device.query.filter_by(device_id=t.device_id).first()
-        if device and device.site and device.site.location:
-            location_name = device.site.location.name
-            location_revenue[location_name] = location_revenue.get(location_name, 0) + (t.amount_paid or 0)
-
-    return {
-        'type': 'bar',
-        'data': {
-            'labels': list(location_revenue.keys()),
-            'datasets': [{
-                'label': 'Revenue',
-                'data': list(location_revenue.values()),
-                'backgroundColor': '#36A2EB'
-            }]
-        }
-    }
-
-def generate_occupancy_by_location_chart(transactions):
-    # Calculate occupancy rate for each location
-    location_occupancy = {}
-    for location in Location.query.all():
-        location_transactions = [t for t in transactions if 
-                               Device.query.filter_by(device_id=t.device_id).first() and
-                               Device.query.filter_by(device_id=t.device_id).first().site and
-                               Device.query.filter_by(device_id=t.device_id).first().site.location_id == location.id]
-        
-        if location.total_spaces > 0:
-            occupancy_rate = (len(location_transactions) / location.total_spaces) * 100
-            location_occupancy[location.name] = round(occupancy_rate, 2)
-
-    return {
-        'type': 'bar',
-        'data': {
-            'labels': list(location_occupancy.keys()),
-            'datasets': [{
-                'label': 'Occupancy Rate (%)',
-                'data': list(location_occupancy.values()),
-                'backgroundColor': '#36A2EB'
-            }]
-        }
-    }
-
-def generate_transactions_by_device_chart(transactions):
-    # Group transactions by device
-    device_transactions = {}
-    for t in transactions:
-        device = Device.query.filter_by(device_id=t.device_id).first()
-        if device:
-            device_name = f"Device {device.device_id}"
-            device_transactions[device_name] = device_transactions.get(device_name, 0) + 1
-
-    return {
-        'type': 'bar',
-        'data': {
-            'labels': list(device_transactions.keys()),
-            'datasets': [{
-                'label': 'Transactions',
-                'data': list(device_transactions.values()),
-                'backgroundColor': '#36A2EB'
-            }]
-        }
-    }
-
-def generate_device_status_chart():
-    # Get device status counts
-    devices = Device.query.all()
-    status_counts = {}
-    for device in devices:
-        status_counts[device.status] = status_counts.get(device.status, 0) + 1
-
-    return {
-        'type': 'doughnut',
-        'data': {
-            'labels': list(status_counts.keys()),
-            'datasets': [{
-                'data': list(status_counts.values()),
-                'backgroundColor': ['#FF6384', '#36A2EB', '#FFCE56']
-            }]
-        }
-    }
-
-def generate_transactions_by_operator_chart(transactions):
-    # Group transactions by operator
-    operator_transactions = {}
-    for t in transactions:
-        operator_transactions[t.operator_id] = operator_transactions.get(t.operator_id, 0) + 1
-
-    return {
-        'type': 'bar',
-        'data': {
-            'labels': list(operator_transactions.keys()),
-            'datasets': [{
-                'label': 'Transactions',
-                'data': list(operator_transactions.values()),
-                'backgroundColor': '#36A2EB'
-            }]
-        }
-    }
-
-def generate_revenue_by_operator_chart(transactions):
-    # Group transactions by operator and calculate total revenue
-    operator_revenue = {}
-    for t in transactions:
-        operator_revenue[t.operator_id] = operator_revenue.get(t.operator_id, 0) + (t.amount_paid or 0)
-
-    return {
-        'type': 'bar',
-        'data': {
-            'labels': list(operator_revenue.keys()),
-            'datasets': [{
-                'label': 'Revenue',
-                'data': list(operator_revenue.values()),
-                'backgroundColor': '#36A2EB'
-            }]
-        }
-    }
-
-def generate_csv_report(start_date, end_date, location_id):
-    # Base query for transactions
-    query = Transaction.query
-
-    # Apply filters
-    if start_date:
-        query = query.filter(Transaction.entry_time >= start_date)
-    if end_date:
-        query = query.filter(Transaction.entry_time <= end_date)
-    if location_id:
-        query = query.join(Device).join(Site).filter(Site.location_id == location_id)
-
-    # Get all transactions
-    transactions = query.all()
-
-    # Create CSV data
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow([
-        'Transaction ID',
-        'Vehicle Number',
-        'Vehicle Category',
-        'Entry Time',
-        'Exit Time',
-        'Duration (minutes)',
-        'Amount Paid',
-        'Payment Method',
-        'Payment Status',
-        'Location',
-        'Site',
-        'Device',
-        'Operator'
-    ])
-
-    # Write data rows
-    for t in transactions:
-        device = Device.query.filter_by(device_id=t.device_id).first()
-        site = device.site if device else None
-        location = site.location if site else None
-        category = VehicleCategory.query.get(t.vehicle_category_id)
-        
-        duration = ((t.exit_time or datetime.now()) - t.entry_time).total_seconds() / 60 if t.exit_time else None
-        
-        writer.writerow([
-            t.transaction_id,
-            t.vehicle_number,
-            category.name if category else 'Unknown',
-            t.entry_time.strftime('%Y-%m-%d %H:%M:%S'),
-            t.exit_time.strftime('%Y-%m-%d %H:%M:%S') if t.exit_time else '',
-            round(duration, 2) if duration else '',
-            t.amount_paid or 0,
-            t.payment_method or '',
-            t.payment_status,
-            location.name if location else 'Unknown',
-            site.name if site else 'Unknown',
-            device.device_id if device else 'Unknown',
-            t.operator_id
-        ])
-
-    return output.getvalue()
-
-@app.route('/api/reports/vehicle', methods=['GET'])
-def vehicle_reports():
-    try:
-        # Get query parameters
-        start_date = request.args.get('startDate')
-        end_date = request.args.get('endDate')
-        vehicle_type = request.args.get('vehicleType')
-        payment_status = request.args.get('paymentStatus')
-        
-        # Base query
-        query = VehicleEntry.query
-        
-        # Apply filters
-        if start_date:
-            start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            query = query.filter(VehicleEntry.entry_time >= start_date)
-        if end_date:
-            end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            query = query.filter(VehicleEntry.entry_time <= end_date)
-        if vehicle_type:
-            query = query.filter(VehicleEntry.vehicle_type == vehicle_type)
-        if payment_status:
-            query = query.filter(VehicleEntry.payment_status == payment_status)
-        
-        # Get all matching records
-        entries = query.all()
-        
-        # Calculate statistics
-        total_entries = len(entries)
-        total_exits = len([e for e in entries if e.exit_time])
-        total_revenue = sum(e.amount_paid or 0 for e in entries)
-        
-        # Group by vehicle type
-        vehicle_type_stats = {}
-        for entry in entries:
-            if entry.vehicle_type not in vehicle_type_stats:
-                vehicle_type_stats[entry.vehicle_type] = {
-                    'count': 0,
-                    'revenue': 0
-                }
-            vehicle_type_stats[entry.vehicle_type]['count'] += 1
-            vehicle_type_stats[entry.vehicle_type]['revenue'] += entry.amount_paid or 0
-        
-        # Group by payment method
-        payment_method_stats = {}
-        for entry in entries:
-            if entry.payment_method:
-                if entry.payment_method not in payment_method_stats:
-                    payment_method_stats[entry.payment_method] = {
-                        'count': 0,
-                        'revenue': 0
-                    }
-                payment_method_stats[entry.payment_method]['count'] += 1
-                payment_method_stats[entry.payment_method]['revenue'] += entry.amount_paid or 0
-        
-        # Calculate average stay duration
-        completed_entries = [e for e in entries if e.exit_time]
-        if completed_entries:
-            total_duration = sum((e.exit_time - e.entry_time).total_seconds() / 3600 for e in completed_entries)
-            avg_stay_duration = total_duration / len(completed_entries)
-        else:
-            avg_stay_duration = 0
-        
-        # Prepare response
-        response_data = {
-            'summary': {
-                'totalEntries': total_entries,
-                'totalExits': total_exits,
-                'totalRevenue': total_revenue,
-                'averageStayDuration': round(avg_stay_duration, 2)
-            },
-            'vehicleTypeStats': vehicle_type_stats,
-            'paymentMethodStats': payment_method_stats,
-            'transactions': [{
-                'id': entry.id,
-                'vehicleNumber': entry.vehicle_number,
-                'vehicleType': entry.vehicle_type,
-                'transactionId': entry.transaction_id,
-                'entryTime': entry.entry_time.isoformat(),
-                'exitTime': entry.exit_time.isoformat() if entry.exit_time else None,
-                'amountPaid': entry.amount_paid,
-                'paymentStatus': entry.payment_status,
-                'paymentMethod': entry.payment_method,
-                'paymentReference': entry.payment_reference
-            } for entry in entries]
-        }
-        
-        return jsonify({
-            'status': 'success',
-            'data': response_data
-        }), 200
-        
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': f'Error generating report: {str(e)}'
         }), 500
 
 @app.route('/analytics')
@@ -1653,7 +1290,7 @@ def analytics_summary():
     # Calculate overnight vehicles
     overnight_vehicles = sum(1 for t in transactions if t.exit_time and (t.exit_time - t.entry_time).total_seconds() > 12 * 3600)
     
-    # Calculate average stay duration
+    # Calculate average stay duration - handle division by zero
     stay_durations = [(t.exit_time - t.entry_time).total_seconds() / 3600 for t in transactions if t.exit_time]
     avg_stay_duration = sum(stay_durations) / len(stay_durations) if stay_durations else 0
     
@@ -1672,35 +1309,24 @@ def analytics_vehicle_in():
         
         logger.info(f"Received date range: start_date={start_date}, end_date={end_date}")
         
-        # Convert string dates to datetime objects
-        if start_date:
+        # If no dates provided, use last 24 hours
+        if not start_date or not end_date:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=1)
+            logger.info(f"Using default date range: start_date={start_date}, end_date={end_date}")
+        else:
+            # Convert string dates to datetime objects
             try:
-                # Try parsing as date-only format first
-                start_date = datetime.strptime(start_date, '%Y-%m-%d')
-            except ValueError:
-                try:
-                    # Try parsing as ISO format with timezone
-                    start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                except ValueError:
-                    # Try parsing as ISO format with milliseconds
-                    start_date = datetime.strptime(start_date, '%Y-%m-%dT%H:%M:%S.%fZ')
-            logger.info(f"Parsed start_date: {start_date}")
-            
-        if end_date:
-            try:
-                # Try parsing as date-only format first
-                end_date = datetime.strptime(end_date, '%Y-%m-%d')
-            except ValueError:
-                try:
-                    # Try parsing as ISO format with timezone
-                    end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                except ValueError:
-                    # Try parsing as ISO format with milliseconds
-                    end_date = datetime.strptime(end_date, '%Y-%m-%dT%H:%M:%S.%fZ')
-            logger.info(f"Parsed end_date: {end_date}")
-            # Add one day to include the entire end date
-            end_date = end_date + timedelta(days=1)
-            logger.info(f"Adjusted end_date: {end_date}")
+                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            except ValueError as e:
+                logger.error(f"Error parsing dates: {str(e)}")
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Invalid date format: {str(e)}'
+                }), 400
+        
+        logger.info(f"Querying vehicle entries between {start_date} and {end_date}")
         
         # Get vehicle entries within date range
         entries = VehicleEntry.query.filter(
@@ -1708,27 +1334,127 @@ def analytics_vehicle_in():
             VehicleEntry.entry_time < end_date
         ).all()
         
+        logger.info(f"Found {len(entries)} vehicle entries in the date range")
+        
+        # If no entries found, return empty list with message
+        if not entries:
+            logger.info("No vehicle entries found in the date range")
+            return jsonify({
+                'status': 'success',
+                'message': 'No vehicle entries found in the selected date range',
+                'data': []
+            })
+        
         # Format data for response
         data = [{
             'vehicle_number': entry.vehicle_number,
-            'category': entry.vehicle_type,
+            'vehicle_type': entry.vehicle_type,
             'entry_time': entry.entry_time.isoformat(),
-            'location': entry.transaction_id  # You might want to join with location table to get actual location name
+            'location': entry.location,
+            'site': entry.site
         } for entry in entries]
         
-        return jsonify(data)
-        
-    except ValueError as e:
-        logger.error(f"ValueError in analytics_vehicle_in: {str(e)}")
+        logger.info(f"Returning {len(data)} vehicle entries")
         return jsonify({
-            'status': 'error',
-            'message': f'Invalid date format: {str(e)}'
-        }), 400
+            'status': 'success',
+            'data': data
+        })
+        
     except Exception as e:
         logger.error(f"Exception in analytics_vehicle_in: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': f'Error fetching vehicle entries: {str(e)}'
+        }), 500
+
+@app.route('/api/vehicle-out', methods=['POST'])
+def vehicle_exit():
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['transactionId', 'exitTime', 'amountPaid']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Missing required field: {field}'
+                }), 400
+
+        # Find the vehicle entry
+        vehicle_entry = VehicleEntry.query.filter_by(transaction_id=data['transactionId']).first()
+        if not vehicle_entry:
+            return jsonify({
+                'status': 'error',
+                'message': 'Transaction ID not found'
+            }), 404
+
+        # Check if vehicle has already exited
+        if vehicle_entry.exit_time:
+            return jsonify({
+                'status': 'error',
+                'message': 'Vehicle has already exited'
+            }), 409
+
+        # Parse exit time with multiple format support
+        exit_time = None
+        try:
+            # Try parsing as ISO format first
+            exit_time_str = data['exitTime']
+            if 'Z' in exit_time_str:
+                exit_time = datetime.fromisoformat(exit_time_str.replace('Z', '+00:00'))
+            elif '+' in exit_time_str or '-' in exit_time_str[-6:]:
+                exit_time = datetime.fromisoformat(exit_time_str)
+            else:
+                # If no timezone indicator, assume local timezone
+                exit_time = datetime.strptime(exit_time_str, '%Y-%m-%dT%H:%M:%S')
+        except ValueError:
+            try:
+                # Try parsing as "MMM DD, YYYY HH:MM:SS AM/PM" format
+                exit_time = datetime.strptime(data['exitTime'], '%b %d, %Y %I:%M:%S %p')
+            except ValueError:
+                try:
+                    # Try parsing as "YYYY-MM-DD HH:MM:SS" format
+                    exit_time = datetime.strptime(data['exitTime'], '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'Invalid date format: {data["exitTime"]}. Supported formats: ISO (with or without timezone), "MMM DD, YYYY HH:MM:SS AM/PM", "YYYY-MM-DD HH:MM:SS"'
+                    }), 400
+
+        # Update vehicle entry with exit information
+        vehicle_entry.exit_time = exit_time
+        vehicle_entry.amount_paid = float(data['amountPaid'])
+        vehicle_entry.payment_status = data.get('status', 'completed')
+        vehicle_entry.payment_method = data.get('paymentMethod')
+        vehicle_entry.payment_reference = data.get('paymentReference')
+
+        db.session.commit()
+
+        # Return response with ISO format dates including timezone
+        return jsonify({
+            'status': 'success',
+            'message': 'Vehicle exit recorded successfully',
+            'data': {
+                'id': vehicle_entry.id,
+                'vehicleNumber': vehicle_entry.vehicle_number,
+                'vehicleType': vehicle_entry.vehicle_type,
+                'transactionId': vehicle_entry.transaction_id,
+                'entryTime': vehicle_entry.entry_time.isoformat() + 'Z',
+                'exitTime': vehicle_entry.exit_time.isoformat() + 'Z',
+                'amountPaid': vehicle_entry.amount_paid,
+                'paymentStatus': vehicle_entry.payment_status,
+                'paymentMethod': vehicle_entry.payment_method,
+                'paymentReference': vehicle_entry.payment_reference,
+                'duration': str(vehicle_entry.exit_time - vehicle_entry.entry_time)
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error processing vehicle exit: {str(e)}'
         }), 500
 
 @app.route('/api/analytics/vehicle-out')
@@ -2066,5 +1792,500 @@ def analytics_overnight_passes():
             'message': f'Error fetching overnight passes: {str(e)}'
         }), 500
 
+@app.route('/entries/detail')
+def entries_detail():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get date parameters from request
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+
+    # Parse dates if provided, otherwise use today's date
+    if from_date and to_date:
+        try:
+            from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+        except ValueError:
+            # If date parsing fails, use today's date
+            today = datetime.now().date()
+            from_date = datetime.combine(today, datetime.min.time())
+            to_date = datetime.combine(today, datetime.max.time())
+    else:
+        # Use today's date if no parameters provided
+        today = datetime.now().date()
+        from_date = datetime.combine(today, datetime.min.time())
+        to_date = datetime.combine(today, datetime.max.time())
+
+    # Get entries within date range
+    entries = VehicleEntry.query.filter(
+        VehicleEntry.entry_time >= from_date,
+        VehicleEntry.entry_time <= to_date
+    ).order_by(VehicleEntry.entry_time.desc()).all()
+
+    # Format entries for display
+    formatted_entries = []
+    for entry in entries:
+        # Get device ID from the entry's device_id field
+        device_id = entry.device_id if hasattr(entry, 'device_id') else 'N/A'
+        
+        formatted_entries.append({
+            'vehicle_number': entry.vehicle_number,
+            'vehicle_type': entry.vehicle_type,
+            'entry_time': entry.entry_time,
+            'exit_time': entry.exit_time,
+            'amount_paid': entry.amount_paid,
+            'payment_status': entry.payment_status,
+            'payment_method': entry.payment_method,
+            'device_id': device_id,
+            'location': entry.location if hasattr(entry, 'location') else 'Kodaikanal',
+            'site': entry.site if hasattr(entry, 'site') else 'Main Parking'
+        })
+
+    return render_template('entries_detail.html',
+                         entries=formatted_entries,
+                         from_date=from_date.strftime('%Y-%m-%dT%H:%M'),
+                         to_date=to_date.strftime('%Y-%m-%dT%H:%M'))
+
+@app.route('/active-vehicles/detail')
+def active_vehicles_detail():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get date parameters from request
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+
+    # Parse dates if provided, otherwise use today's date
+    if from_date and to_date:
+        try:
+            from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+        except ValueError:
+            # If date parsing fails, use today's date
+            today = datetime.now().date()
+            from_date = datetime.combine(today, datetime.min.time())
+            to_date = datetime.combine(today, datetime.max.time())
+    else:
+        # Use today's date if no parameters provided
+        today = datetime.now().date()
+        from_date = datetime.combine(today, datetime.min.time())
+        to_date = datetime.combine(today, datetime.max.time())
+
+    # Get active vehicles within date range
+    active_vehicles = VehicleEntry.query.filter(
+        VehicleEntry.entry_time >= from_date,
+        VehicleEntry.entry_time <= to_date,
+        VehicleEntry.exit_time.is_(None)
+    ).order_by(VehicleEntry.entry_time.desc()).all()
+
+    # Calculate duration for each vehicle
+    for vehicle in active_vehicles:
+        duration = datetime.now() - vehicle.entry_time
+        hours = duration.total_seconds() / 3600
+        vehicle.duration = f"{int(hours)}h {int((hours % 1) * 60)}m"
+
+    return render_template('active_vehicles_detail.html',
+                         active_vehicles=active_vehicles,
+                         from_date=from_date.strftime('%Y-%m-%dT%H:%M'),
+                         to_date=to_date.strftime('%Y-%m-%dT%H:%M'))
+
+@app.route('/revenue/detail')
+def revenue_detail():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get date parameters from request
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+
+    # Parse dates if provided, otherwise use today's date
+    if from_date and to_date:
+        try:
+            from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+        except ValueError:
+            # If date parsing fails, use today's date
+            today = datetime.now().date()
+            from_date = datetime.combine(today, datetime.min.time())
+            to_date = datetime.combine(today, datetime.max.time())
+    else:
+        # Use today's date if no parameters provided
+        today = datetime.now().date()
+        from_date = datetime.combine(today, datetime.min.time())
+        to_date = datetime.combine(today, datetime.max.time())
+
+    # Get regular vehicle entries within date range
+    regular_entries = VehicleEntry.query.filter(
+        VehicleEntry.entry_time >= from_date,
+        VehicleEntry.entry_time <= to_date,
+        VehicleEntry.amount_paid.isnot(None)
+    ).order_by(VehicleEntry.entry_time.desc()).all()
+
+    # Get overnight passes within date range
+    overnight_passes = OvernightPass.query.filter(
+        OvernightPass.created_at >= from_date,
+        OvernightPass.created_at <= to_date
+    ).all()
+
+    # Calculate revenue metrics
+    regular_revenue = sum(e.amount_paid or 0 for e in regular_entries)
+    overnight_revenue = sum(p.amount for p in overnight_passes)
+    total_revenue = regular_revenue + overnight_revenue
+    
+    # Calculate revenue by payment method for regular entries
+    revenue_by_payment = {}
+    for t in regular_entries:
+        method = t.payment_method or 'unknown'
+        revenue_by_payment[method] = revenue_by_payment.get(method, 0) + (t.amount_paid or 0)
+    
+    # Calculate average transaction amount - handle division by zero
+    total_transactions = len(regular_entries) + len(overnight_passes)
+    avg_transaction = total_revenue / total_transactions if total_transactions > 0 else 0
+    
+    # Calculate revenue by hour for regular entries
+    revenue_by_hour = {}
+    for t in regular_entries:
+        hour = t.entry_time.hour
+        revenue_by_hour[hour] = revenue_by_hour.get(hour, 0) + (t.amount_paid or 0)
+
+    return render_template('revenue_detail.html',
+                         transactions=regular_entries,
+                         overnight_passes=overnight_passes,
+                         from_date=from_date.strftime('%Y-%m-%dT%H:%M'),
+                         to_date=to_date.strftime('%Y-%m-%dT%H:%M'),
+                         total_revenue=total_revenue,
+                         regular_revenue=regular_revenue,
+                         overnight_revenue=overnight_revenue,
+                         revenue_by_payment=revenue_by_payment,
+                         avg_transaction=avg_transaction,
+                         revenue_by_hour=revenue_by_hour)
+
+@app.route('/overnight-vehicles/detail')
+def overnight_vehicles_detail():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get date parameters from request
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+
+    # Parse dates if provided, otherwise use today's date
+    if from_date and to_date:
+        try:
+            from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+        except ValueError:
+            # If date parsing fails, use today's date
+            today = datetime.now().date()
+            from_date = datetime.combine(today, datetime.min.time())
+            to_date = datetime.combine(today, datetime.max.time())
+    else:
+        # Use today's date if no parameters provided
+        today = datetime.now().date()
+        from_date = datetime.combine(today, datetime.min.time())
+        to_date = datetime.combine(today, datetime.max.time())
+
+    # Get overnight passes within date range
+    overnight_passes = OvernightPass.query.filter(
+        OvernightPass.created_at >= from_date,
+        OvernightPass.created_at <= to_date,
+        OvernightPass.status == 'active'
+    ).order_by(OvernightPass.created_at.desc()).all()
+
+    # Format data for display
+    for pass_item in overnight_passes:
+        # Calculate duration based on validity days
+        pass_item.duration = f"{pass_item.validity_days} days"
+        # Get vehicle category name
+        vehicle_category = VehicleCategory.query.get(pass_item.vehicle_category_id)
+        pass_item.vehicle_type = vehicle_category.name if vehicle_category else 'Unknown'
+
+    return render_template('overnight_vehicles_detail.html',
+                         overnight_vehicles=overnight_passes,
+                         from_date=from_date.strftime('%Y-%m-%dT%H:%M'),
+                         to_date=to_date.strftime('%Y-%m-%dT%H:%M'))
+
+@app.route('/api/clear-data', methods=['POST'])
+def clear_data():
+    try:
+        # Delete all records from VehicleEntry
+        VehicleEntry.query.delete()
+        
+        # Delete all records from OvernightPass
+        OvernightPass.query.delete()
+        
+        # Commit the changes
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'All data cleared successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error clearing data: {str(e)}'
+        }), 500
+
+@app.route('/api/entries/export')
+def export_entries():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get filter parameters
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+    device_id = request.args.get('device_id')
+    site = request.args.get('site')
+    export_type = request.args.get('type', 'all')  # 'all', 'entries', or 'exits'
+
+    # Convert string dates to datetime objects
+    from_date = datetime.strptime(from_date, '%Y-%m-%dT%H:%M') if from_date else datetime.now() - timedelta(days=7)
+    to_date = datetime.strptime(to_date, '%Y-%m-%dT%H:%M') if to_date else datetime.now()
+
+    # Query the database with filters
+    query = VehicleEntry.query.filter(
+        VehicleEntry.entry_time >= from_date,
+        VehicleEntry.entry_time <= to_date
+    )
+
+    # Apply device and site filters
+    if device_id:
+        query = query.filter(VehicleEntry.device_id == device_id)
+    if site:
+        query = query.filter(VehicleEntry.site == site)
+
+    # Apply type filter
+    if export_type == 'exits':
+        query = query.filter(VehicleEntry.exit_time.isnot(None))
+    elif export_type == 'entries':
+        query = query.filter(VehicleEntry.exit_time.is_(None))
+
+    entries = query.all()
+
+    # Create CSV data
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow(['Vehicle Number', 'Vehicle Type', 'Entry Time', 'Exit Time', 'Status', 'Amount Paid', 'Device', 'Location', 'Site'])
+    
+    # Write data rows
+    for entry in entries:
+        writer.writerow([
+            entry.vehicle_number,
+            entry.vehicle_type,
+            entry.entry_time.strftime('%Y-%m-%d %H:%M:%S'),
+            entry.exit_time.strftime('%Y-%m-%d %H:%M:%S') if entry.exit_time else '-',
+            'Active' if not entry.exit_time else 'Exited',
+            entry.amount_paid or 0,
+            entry.device_id,
+            entry.location,
+            entry.site
+        ])
+
+    # Create the response
+    output.seek(0)
+    response = make_response(output.getvalue())
+    filename = f"{export_type}_{from_date.strftime('%Y%m%d')}_{to_date.strftime('%Y%m%d')}.csv"
+    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    response.headers['Content-type'] = 'text/csv'
+    
+    return response
+
+@app.route('/api/overnight-passes/export')
+def export_overnight_passes():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get filter parameters
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+
+    # Convert string dates to datetime objects
+    from_date = datetime.strptime(from_date, '%Y-%m-%dT%H:%M') if from_date else datetime.now() - timedelta(days=7)
+    to_date = datetime.strptime(to_date, '%Y-%m-%dT%H:%M') if to_date else datetime.now()
+
+    # Query the database with filters
+    query = OvernightPass.query.filter(
+        OvernightPass.created_at >= from_date,
+        OvernightPass.created_at <= to_date
+    )
+
+    passes = query.all()
+
+    # Create CSV data
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow(['Pass Name', 'Vehicle Type', 'Created At', 'Validity Days', 'Amount', 'Device', 'Location', 'Site', 'Status'])
+    
+    # Write data rows
+    for pass_item in passes:
+        vehicle_category = VehicleCategory.query.get(pass_item.vehicle_category_id)
+        vehicle_type = vehicle_category.name if vehicle_category else 'Unknown'
+        
+        writer.writerow([
+            pass_item.name,
+            vehicle_type,
+            pass_item.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            pass_item.validity_days,
+            pass_item.amount,
+            pass_item.device_id,
+            pass_item.location,
+            pass_item.site,
+            pass_item.status
+        ])
+
+    # Create the response
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = f'attachment; filename=overnight_passes_{from_date.strftime("%Y%m%d")}_{to_date.strftime("%Y%m%d")}.csv'
+    response.headers['Content-type'] = 'text/csv'
+    
+    return response
+
+@app.route('/vehicle-type-summary')
+def vehicle_type_summary():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get date parameters from request
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+    device_id = request.args.get('device_id')
+    site = request.args.get('site')
+
+    # Parse dates if provided, otherwise use today's date
+    if from_date and to_date:
+        try:
+            from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+        except ValueError:
+            # If date parsing fails, use today's date
+            today = datetime.now().date()
+            from_date = datetime.combine(today, datetime.min.time())
+            to_date = datetime.combine(today, datetime.max.time())
+    else:
+        # Use today's date if no parameters provided
+        today = datetime.now().date()
+        from_date = datetime.combine(today, datetime.min.time())
+        to_date = datetime.combine(today, datetime.max.time())
+
+    # Get all unique vehicle types from entries
+    vehicle_types = db.session.query(VehicleEntry.vehicle_type).distinct().all()
+    vehicle_types = [v[0] for v in vehicle_types if v[0]]  # Remove None values
+    
+    # Prepare summary data for each vehicle type
+    type_summary = []
+    for vtype in vehicle_types:
+        # Get entries for this vehicle type
+        entries_query = VehicleEntry.query.filter(
+            VehicleEntry.vehicle_type == vtype,
+            VehicleEntry.entry_time >= from_date,
+            VehicleEntry.entry_time <= to_date
+        )
+
+        if device_id:
+            entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+        if site:
+            entries_query = entries_query.filter(VehicleEntry.site == site)
+
+        entries = entries_query.all()
+        
+        # Calculate statistics
+        total_entries = len(entries)
+        active_vehicles = len([e for e in entries if e.exit_time is None])
+        exited_vehicles = len([e for e in entries if e.exit_time is not None])
+        total_revenue = sum(e.amount_paid or 0 for e in entries)
+
+        # Get device and site information from the first entry
+        device_id = entries[0].device_id if entries else 'N/A'
+        location = entries[0].location if entries else 'N/A'
+        site_name = entries[0].site if entries else 'N/A'
+
+        type_summary.append({
+            'name': vtype,
+            'device_id': device_id,
+            'location': location,
+            'site': site_name,
+            'total_entries': total_entries,
+            'active_vehicles': active_vehicles,
+            'exited_vehicles': exited_vehicles,
+            'total_revenue': total_revenue
+        })
+
+    return render_template('vehicle_type_summary.html',
+                         vehicle_types=type_summary,
+                         from_date=from_date.strftime('%Y-%m-%dT%H:%M'),
+                         to_date=to_date.strftime('%Y-%m-%dT%H:%M'))
+
+@app.route('/api/vehicle-type-summary/export')
+def export_vehicle_type_summary():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get filter parameters
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+    device_id = request.args.get('device_id')
+    site = request.args.get('site')
+
+    # Convert string dates to datetime objects
+    from_date = datetime.strptime(from_date, '%Y-%m-%dT%H:%M') if from_date else datetime.now() - timedelta(days=7)
+    to_date = datetime.strptime(to_date, '%Y-%m-%dT%H:%M') if to_date else datetime.now()
+
+    # Get all vehicle types
+    vehicle_types = VehicleCategory.query.all()
+    
+    # Create CSV data
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow(['Vehicle Type', 'Total Entries', 'Active Vehicles', 'Exited Vehicles', 'Total Revenue'])
+    
+    # Write data rows
+    for vtype in vehicle_types:
+        # Get entries for this vehicle type
+        entries_query = VehicleEntry.query.filter(
+            VehicleEntry.vehicle_type == vtype.name,
+            VehicleEntry.entry_time >= from_date,
+            VehicleEntry.entry_time <= to_date
+        )
+
+        if device_id:
+            entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+        if site:
+            entries_query = entries_query.filter(VehicleEntry.site == site)
+
+        entries = entries_query.all()
+        
+        # Calculate statistics
+        total_entries = len(entries)
+        active_vehicles = len([e for e in entries if e.exit_time is None])
+        exited_vehicles = len([e for e in entries if e.exit_time is not None])
+        total_revenue = sum(e.amount_paid or 0 for e in entries)
+
+        writer.writerow([
+            vtype.name,
+            total_entries,
+            active_vehicles,
+            exited_vehicles,
+            total_revenue
+        ])
+
+    # Create the response
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = f'attachment; filename=vehicle_type_summary_{from_date.strftime("%Y%m%d")}_{to_date.strftime("%Y%m%d")}.csv'
+    response.headers['Content-type'] = 'text/csv'
+    
+    return response
+
 if __name__ == '__main__':
-    app.run(host = '0.0.0.0' ,port = 5000, debug=True) 
+    app.run(host='0.0.0.0', port=5000, debug=True) 

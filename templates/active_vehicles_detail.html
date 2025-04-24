@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Active Vehicles Detail{% endblock %}
+
+{% block content %}
+<style>
+    .detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .detail-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .date-filter-container {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+    }
+
+    .date-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .date-filter-group label {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .date-filter-group input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    .filter-button {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .filter-button:hover {
+        background: #1976d2;
+    }
+
+    .vehicles-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .vehicles-table th,
+    .vehicles-table td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+
+    .vehicles-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .vehicles-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .vehicles-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    .duration {
+        color: #666;
+        font-size: 0.9rem;
+    }
+</style>
+
+<div class="detail-container">
+    <div class="detail-header">
+        <h1 class="detail-title">Active Vehicles Detail</h1>
+    </div>
+
+    <div class="date-filter-container">
+        <div class="date-filter-group">
+            <label for="from-date">From:</label>
+            <input type="datetime-local" id="from-date" name="from-date" value="{{ from_date }}">
+        </div>
+        <div class="date-filter-group">
+            <label for="to-date">To:</label>
+            <input type="datetime-local" id="to-date" name="to-date" value="{{ to_date }}">
+        </div>
+        <button class="filter-button" onclick="applyDateFilter()">Apply Filter</button>
+    </div>
+
+    <table class="vehicles-table">
+        <thead>
+            <tr>
+                <th>Vehicle Number</th>
+                <th>Vehicle Type</th>
+                <th>Entry Time</th>
+                <th>Duration</th>
+                <th>Location</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for vehicle in active_vehicles %}
+            <tr>
+                <td>{{ vehicle.vehicle_number }}</td>
+                <td>{{ vehicle.vehicle_type }}</td>
+                <td>{{ vehicle.entry_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td class="duration">{{ vehicle.duration }}</td>
+                <td>{{ vehicle.location }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function applyDateFilter() {
+    const fromDate = document.getElementById('from-date').value;
+    const toDate = document.getElementById('to-date').value;
+    
+    // Add the date parameters to the current URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('from_date', fromDate);
+    url.searchParams.set('to_date', toDate);
+    
+    // Reload the page with the new parameters
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %} 
