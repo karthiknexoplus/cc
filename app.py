@@ -293,7 +293,24 @@ def dashboard():
     today_entries = len(entries)
     active_vehicles = len([e for e in entries if e.exit_time is None])
     today_revenue = sum(e.amount_paid or 0 for e in entries)
-    today_exits = len([e for e in entries if e.exit_time is not None])
+    
+    # Count exits based on exit time, not just entry time
+    exits_query = VehicleEntry.query.filter(
+        VehicleEntry.exit_time >= from_date,
+        VehicleEntry.exit_time <= to_date
+    )
+    
+    # Apply device ID filter to exits if provided
+    if device_id:
+        exits_query = exits_query.filter(VehicleEntry.device_id == device_id)
+    
+    # Apply site filter to exits if provided
+    if site:
+        exits_query = exits_query.filter(VehicleEntry.site == site)
+    
+    # Get exits within date range and filters
+    exits = exits_query.all()
+    today_exits = len(exits)
 
     # Get overnight passes within date range and filters
     overnight_query = OvernightPass.query.filter(
