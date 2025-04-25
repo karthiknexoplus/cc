@@ -4,34 +4,60 @@
 
 {% block content %}
 <div class="dashboard-container">
-    <div class="date-filter-container">
-        <div class="date-filter-group">
-            <label for="from-date">From:</label>
-            <input type="datetime-local" id="from-date" name="from-date" value="{{ from_date }}">
+    <div class="filter-section">
+        <div class="date-filter-container">
+            <div class="date-filter-group">
+                <label for="from-date">From:</label>
+                <input type="datetime-local" id="from-date" name="from-date" value="{{ from_date }}">
+            </div>
+            <div class="date-filter-group">
+                <label for="to-date">To:</label>
+                <input type="datetime-local" id="to-date" name="to-date" value="{{ to_date }}">
+            </div>
+            <div class="date-filter-group">
+                <label for="device-id">Device:</label>
+                <select id="device-id" name="device-id" class="form-control">
+                    <option value="">All Devices</option>
+                    {% for device_id in device_ids %}
+                    <option value="{{ device_id }}" {% if device_id == selected_device_id %}selected{% endif %}>{{ device_id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="date-filter-group">
+                <label for="site">Site:</label>
+                <select id="site" name="site" class="form-control">
+                    <option value="">All Sites</option>
+                    {% for site in sites %}
+                    <option value="{{ site }}" {% if site == selected_site %}selected{% endif %}>{{ site }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="filter-button" onclick="applyDateFilter()">Apply Filter</button>
+            <div class="export-buttons">
+                <button class="export-button" onclick="exportDashboardData('all')">
+                    <i class="fas fa-download"></i> Export All
+                </button>
+                <button class="export-button" onclick="exportDashboardData('entries')">
+                    <i class="fas fa-download"></i> Export Entries
+                </button>
+                <button class="export-button" onclick="exportDashboardData('exits')">
+                    <i class="fas fa-download"></i> Export Exits
+                </button>
+                <button class="export-button" onclick="exportDashboardData('active')">
+                    <i class="fas fa-download"></i> Export Active
+                </button>
+                <button class="export-button" onclick="exportDashboardData('overnight')">
+                    <i class="fas fa-download"></i> Export Overnight
+                </button>
+                <button class="export-button" onclick="exportDashboardData('summary')">
+                    <i class="fas fa-download"></i> Export Summary
+                </button>
+            </div>
         </div>
-        <div class="date-filter-group">
-            <label for="to-date">To:</label>
-            <input type="datetime-local" id="to-date" name="to-date" value="{{ to_date }}">
-        </div>
-        <div class="date-filter-group">
-            <label for="device-id">Device:</label>
-            <select id="device-id" name="device-id" class="form-control">
-                <option value="">All Devices</option>
-                {% for device_id in device_ids %}
-                <option value="{{ device_id }}" {% if device_id == selected_device_id %}selected{% endif %}>{{ device_id }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="date-filter-group">
-            <label for="site">Site:</label>
-            <select id="site" name="site" class="form-control">
-                <option value="">All Sites</option>
-                {% for site in sites %}
-                <option value="{{ site }}" {% if site == selected_site %}selected{% endif %}>{{ site }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <button class="filter-button" onclick="applyDateFilter()">Apply Filter</button>
+    </div>
+
+    <div class="dashboard-header">
+        <h1>Dashboard</h1>
     </div>
 
     <div class="stats-grid">
@@ -492,6 +518,32 @@
 .export-btn i {
     font-size: 0.9rem;
 }
+
+.export-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.export-button {
+    padding: 8px 16px;
+    background-color: #1a237e;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.export-button:hover {
+    background-color: #0d1a6b;
+}
+
+.export-button i {
+    font-size: 14px;
+}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -582,6 +634,16 @@ function exportData(dataType, title) {
     link.href = URL.createObjectURL(blob);
     link.download = `${title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+}
+
+function exportDashboardData(type) {
+    const fromDate = document.getElementById('from-date').value;
+    const toDate = document.getElementById('to-date').value;
+    const deviceId = document.getElementById('device-id').value;
+    const site = document.getElementById('site').value;
+    
+    const url = `/api/dashboard/export?from_date=${fromDate}&to_date=${toDate}&device_id=${deviceId}&site=${site}&type=${type}`;
+    window.location.href = url;
 }
 
 document.addEventListener('DOMContentLoaded', function() {

@@ -2263,15 +2263,9 @@ def vehicle_type_summary():
         from_date = datetime.combine(today, datetime.min.time())
         to_date = datetime.combine(today, datetime.max.time())
 
-    # Get all unique vehicle types from entries and categories
-    entry_types = db.session.query(VehicleEntry.vehicle_type).distinct().all()
-    entry_types = [v[0] for v in entry_types if v[0]]  # Remove None values
-    
-    category_types = db.session.query(VehicleCategory.name).distinct().all()
-    category_types = [v[0] for v in category_types if v[0]]  # Remove None values
-    
-    # Combine and deduplicate vehicle types
-    vehicle_types = list(set(entry_types + category_types))
+    # Get all unique vehicle types from entries
+    vehicle_types = db.session.query(VehicleEntry.vehicle_type).distinct().all()
+    vehicle_types = [v[0] for v in vehicle_types if v[0]]  # Remove None values
     
     # Prepare summary data for each vehicle type
     type_summary = []
@@ -2376,6 +2370,196 @@ def export_vehicle_type_summary():
     output.seek(0)
     response = make_response(output.getvalue())
     response.headers['Content-Disposition'] = f'attachment; filename=vehicle_type_summary_{from_date.strftime("%Y%m%d")}_{to_date.strftime("%Y%m%d")}.csv'
+    response.headers['Content-type'] = 'text/csv'
+    
+    return response
+
+@app.route('/api/dashboard/export')
+def export_dashboard_data():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    # Get filter parameters from request
+    from_date = request.args.get('from_date')
+    to_date = request.args.get('to_date')
+    device_id = request.args.get('device_id')
+    site = request.args.get('site')
+    export_type = request.args.get('type', 'all')  # all, entries, exits, active, overnight, summary
+
+    # Parse dates if provided, otherwise use today's date
+    if from_date and to_date:
+        try:
+            from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+        except ValueError:
+            # If date parsing fails, use today's date
+            today = datetime.now().date()
+            from_date = datetime.combine(today, datetime.min.time())
+            to_date = datetime.combine(today, datetime.max.time())
+    else:
+        # Use today's date if no parameters provided
+        today = datetime.now().date()
+        from_date = datetime.combine(today, datetime.min.time())
+        to_date = datetime.combine(today, datetime.max.time())
+
+    # Create CSV data
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    if export_type in ['all', 'entries']:
+        # Export entries
+        entries_query = VehicleEntry.query.filter(
+            VehicleEntry.entry_time >= from_date,
+            VehicleEntry.entry_time <= to_date
+        )
+        if device_id:
+            entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+        if site:
+            entries_query = entries_query.filter(VehicleEntry.site == site)
+        
+        entries = entries_query.all()
+        writer.writerow(['Entries Report'])
+        writer.writerow(['Vehicle Number', 'Vehicle Type', 'Entry Time', 'Exit Time', 'Amount Paid', 'Status', 'Device', 'Location', 'Site'])
+        for entry in entries:
+            writer.writerow([
+                entry.vehicle_number,
+                entry.vehicle_type,
+                entry.entry_time.strftime('%Y-%m-%d %H:%M:%S'),
+                entry.exit_time.strftime('%Y-%m-%d %H:%M:%S') if entry.exit_time else '-',
+                entry.amount_paid or 0,
+                'Active' if not entry.exit_time else 'Exited',
+                entry.device_id,
+                entry.location,
+                entry.site
+            ])
+        writer.writerow([])  # Empty row for separation
+
+    if export_type in ['all', 'exits']:
+        # Export exits
+        exits_query = VehicleEntry.query.filter(
+            VehicleEntry.exit_time >= from_date,
+            VehicleEntry.exit_time <= to_date
+        )
+        if device_id:
+            exits_query = exits_query.filter(VehicleEntry.device_id == device_id)
+        if site:
+            exits_query = exits_query.filter(VehicleEntry.site == site)
+        
+        exits = exits_query.all()
+        writer.writerow(['Exits Report'])
+        writer.writerow(['Vehicle Number', 'Vehicle Type', 'Entry Time', 'Exit Time', 'Amount Paid', 'Payment Method', 'Device', 'Location', 'Site'])
+        for exit in exits:
+            writer.writerow([
+                exit.vehicle_number,
+                exit.vehicle_type,
+                exit.entry_time.strftime('%Y-%m-%d %H:%M:%S'),
+                exit.exit_time.strftime('%Y-%m-%d %H:%M:%S'),
+                exit.amount_paid or 0,
+                exit.payment_method or '-',
+                exit.device_id,
+                exit.location,
+                exit.site
+            ])
+        writer.writerow([])
+
+    if export_type in ['all', 'active']:
+        # Export active vehicles
+        active_query = VehicleEntry.query.filter(
+            VehicleEntry.entry_time >= from_date,
+            VehicleEntry.entry_time <= to_date,
+            VehicleEntry.exit_time.is_(None)
+        )
+        if device_id:
+            active_query = active_query.filter(VehicleEntry.device_id == device_id)
+        if site:
+            active_query = active_query.filter(VehicleEntry.site == site)
+        
+        active_vehicles = active_query.all()
+        writer.writerow(['Active Vehicles Report'])
+        writer.writerow(['Vehicle Number', 'Vehicle Type', 'Entry Time', 'Duration', 'Device', 'Location', 'Site'])
+        for vehicle in active_vehicles:
+            duration = datetime.now() - vehicle.entry_time
+            hours = duration.total_seconds() / 3600
+            duration_str = f"{int(hours)}h {int((hours % 1) * 60)}m"
+            writer.writerow([
+                vehicle.vehicle_number,
+                vehicle.vehicle_type,
+                vehicle.entry_time.strftime('%Y-%m-%d %H:%M:%S'),
+                duration_str,
+                vehicle.device_id,
+                vehicle.location,
+                vehicle.site
+            ])
+        writer.writerow([])
+
+    if export_type in ['all', 'overnight']:
+        # Export overnight vehicles
+        overnight_query = OvernightPass.query.filter(
+            OvernightPass.created_at >= from_date,
+            OvernightPass.created_at <= to_date,
+            OvernightPass.status == 'active'
+        )
+        if device_id:
+            overnight_query = overnight_query.filter(OvernightPass.device_id == device_id)
+        if site:
+            overnight_query = overnight_query.filter(OvernightPass.site == site)
+        
+        overnight_passes = overnight_query.all()
+        writer.writerow(['Overnight Vehicles Report'])
+        writer.writerow(['Pass Name', 'Vehicle Type', 'Created At', 'Validity Days', 'Amount', 'Device', 'Location', 'Site'])
+        for pass_item in overnight_passes:
+            vehicle_category = VehicleCategory.query.get(pass_item.vehicle_category_id)
+            vehicle_type = vehicle_category.name if vehicle_category else 'Unknown'
+            writer.writerow([
+                pass_item.name,
+                vehicle_type,
+                pass_item.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                pass_item.validity_days,
+                pass_item.amount,
+                pass_item.device_id,
+                pass_item.location,
+                pass_item.site
+            ])
+        writer.writerow([])
+
+    if export_type in ['all', 'summary']:
+        # Export vehicle type summary
+        vehicle_types = db.session.query(VehicleEntry.vehicle_type).distinct().all()
+        vehicle_types = [v[0] for v in vehicle_types if v[0]]
+        
+        writer.writerow(['Vehicle Type Summary Report'])
+        writer.writerow(['Vehicle Type', 'Total Entries', 'Active Vehicles', 'Exited Vehicles', 'Total Revenue'])
+        
+        for vtype in vehicle_types:
+            entries_query = VehicleEntry.query.filter(
+                VehicleEntry.vehicle_type == vtype,
+                VehicleEntry.entry_time >= from_date,
+                VehicleEntry.entry_time <= to_date
+            )
+            if device_id:
+                entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+            if site:
+                entries_query = entries_query.filter(VehicleEntry.site == site)
+            
+            entries = entries_query.all()
+            total_entries = len(entries)
+            active_vehicles = len([e for e in entries if e.exit_time is None])
+            exited_vehicles = len([e for e in entries if e.exit_time is not None])
+            total_revenue = sum(e.amount_paid or 0 for e in entries)
+            
+            writer.writerow([
+                vtype,
+                total_entries,
+                active_vehicles,
+                exited_vehicles,
+                total_revenue
+            ])
+
+    # Create the response
+    output.seek(0)
+    response = make_response(output.getvalue())
+    filename = f"dashboard_report_{from_date.strftime('%Y%m%d')}_{to_date.strftime('%Y%m%d')}.csv"
+    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
     response.headers['Content-type'] = 'text/csv'
     
     return response
