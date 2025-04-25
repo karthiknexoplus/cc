@@ -2263,9 +2263,15 @@ def vehicle_type_summary():
         from_date = datetime.combine(today, datetime.min.time())
         to_date = datetime.combine(today, datetime.max.time())
 
-    # Get all unique vehicle types from entries
-    vehicle_types = db.session.query(VehicleEntry.vehicle_type).distinct().all()
-    vehicle_types = [v[0] for v in vehicle_types if v[0]]  # Remove None values
+    # Get all unique vehicle types from entries and categories
+    entry_types = db.session.query(VehicleEntry.vehicle_type).distinct().all()
+    entry_types = [v[0] for v in entry_types if v[0]]  # Remove None values
+    
+    category_types = db.session.query(VehicleCategory.name).distinct().all()
+    category_types = [v[0] for v in category_types if v[0]]  # Remove None values
+    
+    # Combine and deduplicate vehicle types
+    vehicle_types = list(set(entry_types + category_types))
     
     # Prepare summary data for each vehicle type
     type_summary = []
