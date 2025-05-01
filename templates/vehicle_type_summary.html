@@ -97,6 +97,7 @@
 
     .summary-table tr:hover {
         background: #f8f9fa;
+        cursor: pointer;
     }
 
     .vehicle-type {
@@ -161,6 +162,62 @@
         font-weight: 400;
         color: #666;
     }
+
+    .device-details {
+        display: none;
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 10px;
+    }
+
+    .device-details.active {
+        display: block;
+    }
+
+    .device-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 10px;
+    }
+
+    .device-info-item {
+        background: white;
+        padding: 10px;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .device-info-label {
+        font-size: 0.8rem;
+        color: #666;
+        margin-bottom: 5px;
+    }
+
+    .device-info-value {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #333;
+    }
+
+    .device-status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .status-active {
+        background: rgba(76, 175, 80, 0.1);
+        color: #4caf50;
+    }
+
+    .status-inactive {
+        background: rgba(244, 67, 54, 0.1);
+        color: #f44336;
+    }
 </style>
 
 <div class="detail-container">
@@ -197,7 +254,7 @@
         </thead>
         <tbody>
             {% for type in vehicle_types %}
-            <tr>
+            <tr onclick="showDeviceSummary('{{ type.device_id }}')">
                 <td class="vehicle-type">{{ type.name }}</td>
                 <td class="device-badge">{{ type.device_id }}</td>
                 <td class="location-info">
@@ -208,6 +265,38 @@
                 <td class="count">{{ type.active_vehicles }}</td>
                 <td class="count">{{ type.exited_vehicles }}</td>
                 <td class="amount">₹{{ type.total_revenue }}</td>
+            </tr>
+            <tr>
+                <td colspan="7">
+                    <div id="device-summary-{{ type.device_id }}" class="device-details">
+                        <div class="device-info-grid">
+                            <div class="device-info-item">
+                                <div class="device-info-label">Total Entries Today</div>
+                                <div class="device-info-value">{{ type.total_entries_today }}</div>
+                            </div>
+                            <div class="device-info-item">
+                                <div class="device-info-label">Active Vehicles Now</div>
+                                <div class="device-info-value">{{ type.active_vehicles_now }}</div>
+                            </div>
+                            <div class="device-info-item">
+                                <div class="device-info-label">Exited Vehicles Today</div>
+                                <div class="device-info-value">{{ type.exited_vehicles_today }}</div>
+                            </div>
+                            <div class="device-info-item">
+                                <div class="device-info-label">Today's Revenue</div>
+                                <div class="device-info-value">₹{{ type.today_revenue }}</div>
+                            </div>
+                            <div class="device-info-item">
+                                <div class="device-info-label">Last Entry Time</div>
+                                <div class="device-info-value">{{ type.last_entry_time }}</div>
+                            </div>
+                            <div class="device-info-item">
+                                <div class="device-info-label">Last Exit Time</div>
+                                <div class="device-info-value">{{ type.last_exit_time }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -240,6 +329,17 @@ function exportToCSV() {
     
     // Trigger the download
     window.location.href = url.toString();
+}
+
+function showDeviceSummary(deviceId) {
+    // Hide all device summaries first
+    document.querySelectorAll('.device-details').forEach(el => {
+        el.classList.remove('active');
+    });
+    
+    // Show the selected device summary
+    const summaryElement = document.getElementById(`device-summary-${deviceId}`);
+    summaryElement.classList.add('active');
 }
 </script>
 {% endblock %} 

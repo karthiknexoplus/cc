@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Vehicle Entries Detail{% endblock %}
+{% block title %}Vehicle Entries{% endblock %}
 
 {% block content %}
 <style>
@@ -125,6 +125,16 @@
         color: #9c27b0;
     }
 
+    .device-badge.entry {
+        background: rgba(33, 150, 243, 0.1);
+        color: #2196f3;
+    }
+
+    .device-badge.exit {
+        background: rgba(233, 30, 99, 0.1);
+        color: #e91e63;
+    }
+
     .location-info {
         display: flex;
         flex-direction: column;
@@ -162,11 +172,33 @@
     .export-button i {
         font-size: 1rem;
     }
+
+    .device-info {
+        margin: 10px 0;
+        display: flex;
+        gap: 10px;
+    }
+
+    .device-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+
+    .entry-device {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .exit-device {
+        background-color: #e8f5e9;
+        color: #388e3c;
+    }
 </style>
 
 <div class="detail-container">
     <div class="detail-header">
-        <h1 class="detail-title">Vehicle Entries Detail</h1>
+        <h1 class="detail-title">Vehicle Entries</h1>
         <button class="export-button" onclick="exportToCSV()">
             <i class="fas fa-download"></i> Export to CSV
         </button>
@@ -193,7 +225,7 @@
                 <th>Exit Time</th>
                 <th>Status</th>
                 <th>Amount Paid</th>
-                <th>Device</th>
+                <th>Devices</th>
                 <th>Location</th>
             </tr>
         </thead>
@@ -211,7 +243,12 @@
                 </td>
                 <td>₹{{ entry.amount_paid or 0 }}</td>
                 <td>
-                    <span class="device-badge">{{ entry.device_id }}</span>
+                    <div class="device-info">
+                        <span class="device-badge entry-device">Entry: {{ entry.entry_device_id or 'N/A' }}</span>
+                        {% if entry.exit_device_id %}
+                        <span class="device-badge exit-device">Exit: {{ entry.exit_device_id }}</span>
+                        {% endif %}
+                    </div>
                 </td>
                 <td>
                     <div class="location-info">

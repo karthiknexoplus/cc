@@ -6,7 +6,7 @@ import logging
 import random
 import string
 from flask_migrate import Migrate
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import io
 import csv
 import traceback
@@ -159,7 +159,8 @@ class VehicleEntry(db.Model):
     payment_status = db.Column(db.String(20), default='pending')  # pending, paid, failed
     payment_method = db.Column(db.String(20))  # cash, upi, card
     payment_reference = db.Column(db.String(100))  # UPI reference, card number, etc.
-    device_id = db.Column(db.String(3))  # Device ID from the entry
+    entry_device_id = db.Column(db.String(3))  # Device ID from the entry
+    exit_device_id = db.Column(db.String(3))  # Device ID from the exit
     location = db.Column(db.String(100))  # Location from the entry
     site = db.Column(db.String(100))  # Site from the entry
     created_at = db.Column(db.DateTime, server_default=db.func.now())
@@ -280,7 +281,7 @@ def dashboard():
 
     # Apply device ID filter if provided
     if device_id:
-        entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+        entries_query = entries_query.filter(VehicleEntry.entry_device_id == device_id)
 
     # Apply site filter if provided
     if site:
@@ -302,7 +303,7 @@ def dashboard():
     
     # Apply device ID filter to exits if provided
     if device_id:
-        exits_query = exits_query.filter(VehicleEntry.device_id == device_id)
+        exits_query = exits_query.filter(VehicleEntry.exit_device_id == device_id)
     
     # Apply site filter to exits if provided
     if site:
@@ -344,7 +345,7 @@ def dashboard():
         'entry_time': entry.entry_time.strftime('%Y-%m-%d %H:%M:%S'),
         'location': entry.location,
         'site': entry.site,
-        'device_id': entry.device_id,
+        'device_id': entry.entry_device_id,
         'exit_time': entry.exit_time.strftime('%Y-%m-%d %H:%M:%S') if entry.exit_time else None,
         'amount_paid': entry.amount_paid,
         'payment_method': entry.payment_method,
@@ -352,7 +353,7 @@ def dashboard():
     } for entry in recent_entries]
 
     # Get unique device IDs and sites for filter dropdowns
-    device_ids = db.session.query(VehicleEntry.device_id).distinct().all()
+    device_ids = db.session.query(VehicleEntry.entry_device_id).distinct().all()
     device_ids = [d[0] for d in device_ids if d[0]]  # Remove None values
 
     sites = db.session.query(VehicleEntry.site).distinct().all()
@@ -1257,7 +1258,7 @@ def vehicle_entry():
             transaction_id=data['transactionId'],
             entry_time=entry_time,
             qr_code=data.get('qrCode'),
-            device_id=data['deviceId'],
+            entry_device_id=data['deviceId'],
             location=data.get('location', 'Kodaikanal'),
             site=data.get('site', 'Main Parking')
         )
@@ -1269,7 +1270,7 @@ def vehicle_entry():
         logger.info("Created new vehicle entry:")
         logger.info(f"ID: {new_entry.id}")
         logger.info(f"Vehicle Number: {new_entry.vehicle_number}")
-        logger.info(f"Device ID: {new_entry.device_id}")
+        logger.info(f"Device ID: {new_entry.entry_device_id}")
         logger.info(f"Location: {new_entry.location}")
         logger.info(f"Site: {new_entry.site}")
 
@@ -1284,7 +1285,7 @@ def vehicle_entry():
                 'transactionId': new_entry.transaction_id,
                 'entryTime': new_entry.entry_time.isoformat() + 'Z',
                 'qrCode': new_entry.qr_code,
-                'deviceId': new_entry.device_id,
+                'deviceId': new_entry.entry_device_id,
                 'location': new_entry.location,
                 'site': new_entry.site
             }
@@ -1477,7 +1478,7 @@ def vehicle_exit():
             vehicle_entry.payment_status = data.get('status', 'completed')
             vehicle_entry.payment_method = data.get('paymentMethod')
             vehicle_entry.payment_reference = data.get('paymentReference')
-            vehicle_entry.device_id = data.get('deviceId')  # Update device_id from exit device
+            vehicle_entry.exit_device_id = data.get('deviceId')  # Update device_id from exit device
             
             db.session.commit()
             logger.info(f"Updated vehicle exit record: ID={vehicle_entry.id}, Exit Time={vehicle_entry.exit_time}, Amount Paid={vehicle_entry.amount_paid}")
@@ -1510,7 +1511,7 @@ def vehicle_exit():
         vehicle_entry.payment_status = data.get('status', 'completed')
         vehicle_entry.payment_method = data.get('paymentMethod')
         vehicle_entry.payment_reference = data.get('paymentReference')
-        vehicle_entry.device_id = data.get('deviceId')  # Update device_id from exit device
+        vehicle_entry.exit_device_id = data.get('deviceId')  # Update device_id from exit device
 
         db.session.commit()
         logger.info(f"Created new vehicle exit record: ID={vehicle_entry.id}, Exit Time={vehicle_entry.exit_time}, Amount Paid={vehicle_entry.amount_paid}")
@@ -1910,27 +1911,8 @@ def entries_detail():
         VehicleEntry.entry_time <= to_date
     ).order_by(VehicleEntry.entry_time.desc()).all()
 
-    # Format entries for display
-    formatted_entries = []
-    for entry in entries:
-        # Get device ID from the entry's device_id field
-        device_id = entry.device_id if hasattr(entry, 'device_id') else 'N/A'
-        
-        formatted_entries.append({
-            'vehicle_number': entry.vehicle_number,
-            'vehicle_type': entry.vehicle_type,
-            'entry_time': entry.entry_time,
-            'exit_time': entry.exit_time,
-            'amount_paid': entry.amount_paid,
-            'payment_status': entry.payment_status,
-            'payment_method': entry.payment_method,
-            'device_id': device_id,
-            'location': entry.location if hasattr(entry, 'location') else 'Kodaikanal',
-            'site': entry.site if hasattr(entry, 'site') else 'Main Parking'
-        })
-
     return render_template('entries_detail.html',
-                         entries=formatted_entries,
+                         entries=entries,
                          from_date=from_date.strftime('%Y-%m-%dT%H:%M'),
                          to_date=to_date.strftime('%Y-%m-%dT%H:%M'))
 
@@ -2141,7 +2123,7 @@ def export_entries():
 
     # Apply device and site filters
     if device_id:
-        query = query.filter(VehicleEntry.device_id == device_id)
+        query = query.filter(VehicleEntry.entry_device_id == device_id)
     if site:
         query = query.filter(VehicleEntry.site == site)
 
@@ -2169,7 +2151,7 @@ def export_entries():
             entry.exit_time.strftime('%Y-%m-%d %H:%M:%S') if entry.exit_time else '-',
             'Active' if not entry.exit_time else 'Exited',
             entry.amount_paid or 0,
-            entry.device_id,
+            entry.entry_device_id,
             entry.location,
             entry.site
         ])
@@ -2247,6 +2229,8 @@ def vehicle_type_summary():
     device_id = request.args.get('device_id')
     site = request.args.get('site')
 
+    logger.info(f"Vehicle Type Summary - Parameters: from_date={from_date}, to_date={to_date}, device_id={device_id}, site={site}")
+
     # Parse dates if provided, otherwise use today's date
     if from_date and to_date:
         try:
@@ -2267,6 +2251,8 @@ def vehicle_type_summary():
     vehicle_types = db.session.query(VehicleEntry.vehicle_type).distinct().all()
     vehicle_types = [v[0] for v in vehicle_types if v[0]]  # Remove None values
     
+    logger.info(f"Found {len(vehicle_types)} unique vehicle types: {vehicle_types}")
+    
     # Prepare summary data for each vehicle type
     type_summary = []
     for vtype in vehicle_types:
@@ -2278,11 +2264,13 @@ def vehicle_type_summary():
         )
 
         if device_id:
-            entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+            entries_query = entries_query.filter(VehicleEntry.entry_device_id == device_id)
         if site:
             entries_query = entries_query.filter(VehicleEntry.site == site)
 
         entries = entries_query.all()
+        
+        logger.info(f"Vehicle Type {vtype}: Found {len(entries)} entries")
         
         # Calculate statistics
         total_entries = len(entries)
@@ -2290,12 +2278,22 @@ def vehicle_type_summary():
         exited_vehicles = len([e for e in entries if e.exit_time is not None])
         total_revenue = sum(e.amount_paid or 0 for e in entries)
 
+        # Get today's statistics
+        today_start = datetime.combine(datetime.now().date(), datetime.min.time())
+        today_entries = [e for e in entries if e.entry_time >= today_start]
+        today_exits = [e for e in entries if e.exit_time and e.exit_time >= today_start]
+        today_revenue = sum(e.amount_paid or 0 for e in today_entries)
+
+        # Get last entry and exit times
+        last_entry = max([e.entry_time for e in entries], default=None)
+        last_exit = max([e.exit_time for e in entries if e.exit_time], default=None)
+
         # Get device and site information from the first entry
-        device_id = entries[0].device_id if entries else 'N/A'
+        device_id = entries[0].entry_device_id if entries else 'N/A'
         location = entries[0].location if entries else 'N/A'
         site_name = entries[0].site if entries else 'N/A'
 
-        type_summary.append({
+        summary_data = {
             'name': vtype,
             'device_id': device_id,
             'location': location,
@@ -2303,8 +2301,17 @@ def vehicle_type_summary():
             'total_entries': total_entries,
             'active_vehicles': active_vehicles,
             'exited_vehicles': exited_vehicles,
-            'total_revenue': total_revenue
-        })
+            'total_revenue': total_revenue,
+            'total_entries_today': len(today_entries),
+            'active_vehicles_now': active_vehicles,
+            'exited_vehicles_today': len(today_exits),
+            'today_revenue': today_revenue,
+            'last_entry_time': last_entry.strftime('%Y-%m-%d %H:%M:%S') if last_entry else 'N/A',
+            'last_exit_time': last_exit.strftime('%Y-%m-%d %H:%M:%S') if last_exit else 'N/A'
+        }
+        
+        logger.info(f"Vehicle Type {vtype} Summary: {summary_data}")
+        type_summary.append(summary_data)
 
     return render_template('vehicle_type_summary.html',
                          vehicle_types=type_summary,
@@ -2319,7 +2326,7 @@ def export_vehicle_type_summary():
     # Get filter parameters
     from_date = request.args.get('from_date')
     to_date = request.args.get('to_date')
-    device_id = request.args.get('device_id')
+    filter_device_id = request.args.get('device_id')
     site = request.args.get('site')
 
     # Convert string dates to datetime objects
@@ -2334,7 +2341,7 @@ def export_vehicle_type_summary():
     writer = csv.writer(output)
     
     # Write header
-    writer.writerow(['Vehicle Type', 'Total Entries', 'Active Vehicles', 'Exited Vehicles', 'Total Revenue'])
+    writer.writerow(['Vehicle Type', 'Device ID', 'Site', 'Total Entries', 'Active Vehicles', 'Exited Vehicles', 'Total Revenue'])
     
     # Write data rows
     for vtype in vehicle_types:
@@ -2345,8 +2352,8 @@ def export_vehicle_type_summary():
             VehicleEntry.entry_time <= to_date
         )
 
-        if device_id:
-            entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+        if filter_device_id:
+            entries_query = entries_query.filter(VehicleEntry.entry_device_id == filter_device_id)
         if site:
             entries_query = entries_query.filter(VehicleEntry.site == site)
 
@@ -2358,8 +2365,14 @@ def export_vehicle_type_summary():
         exited_vehicles = len([e for e in entries if e.exit_time is not None])
         total_revenue = sum(e.amount_paid or 0 for e in entries)
 
+        # Get device and site information from the first entry
+        entry_device_id = entries[0].entry_device_id if entries else 'N/A'
+        site_name = entries[0].site if entries else 'N/A'
+
         writer.writerow([
             vtype.name,
+            entry_device_id,
+            site_name,
             total_entries,
             active_vehicles,
             exited_vehicles,
@@ -2413,7 +2426,7 @@ def export_dashboard_data():
             VehicleEntry.entry_time <= to_date
         )
         if device_id:
-            entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+            entries_query = entries_query.filter(VehicleEntry.entry_device_id == device_id)
         if site:
             entries_query = entries_query.filter(VehicleEntry.site == site)
         
@@ -2428,7 +2441,7 @@ def export_dashboard_data():
                 entry.exit_time.strftime('%Y-%m-%d %H:%M:%S') if entry.exit_time else '-',
                 entry.amount_paid or 0,
                 'Active' if not entry.exit_time else 'Exited',
-                entry.device_id,
+                entry.entry_device_id,
                 entry.location,
                 entry.site
             ])
@@ -2441,7 +2454,7 @@ def export_dashboard_data():
             VehicleEntry.exit_time <= to_date
         )
         if device_id:
-            exits_query = exits_query.filter(VehicleEntry.device_id == device_id)
+            exits_query = exits_query.filter(VehicleEntry.exit_device_id == device_id)
         if site:
             exits_query = exits_query.filter(VehicleEntry.site == site)
         
@@ -2456,7 +2469,7 @@ def export_dashboard_data():
                 exit.exit_time.strftime('%Y-%m-%d %H:%M:%S'),
                 exit.amount_paid or 0,
                 exit.payment_method or '-',
-                exit.device_id,
+                exit.exit_device_id,
                 exit.location,
                 exit.site
             ])
@@ -2470,7 +2483,7 @@ def export_dashboard_data():
             VehicleEntry.exit_time.is_(None)
         )
         if device_id:
-            active_query = active_query.filter(VehicleEntry.device_id == device_id)
+            active_query = active_query.filter(VehicleEntry.entry_device_id == device_id)
         if site:
             active_query = active_query.filter(VehicleEntry.site == site)
         
@@ -2486,7 +2499,7 @@ def export_dashboard_data():
                 vehicle.vehicle_type,
                 vehicle.entry_time.strftime('%Y-%m-%d %H:%M:%S'),
                 duration_str,
-                vehicle.device_id,
+                vehicle.entry_device_id,
                 vehicle.location,
                 vehicle.site
             ])
@@ -2537,7 +2550,7 @@ def export_dashboard_data():
                 VehicleEntry.entry_time <= to_date
             )
             if device_id:
-                entries_query = entries_query.filter(VehicleEntry.device_id == device_id)
+                entries_query = entries_query.filter(VehicleEntry.entry_device_id == device_id)
             if site:
                 entries_query = entries_query.filter(VehicleEntry.site == site)
             
