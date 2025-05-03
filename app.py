@@ -353,7 +353,7 @@ def dashboard():
     } for entry in recent_entries]
 
     # Get unique device IDs and sites for filter dropdowns
-    device_ids = db.session.query(VehicleEntry.entry_device_id).distinct().all()
+    device_ids = db.session.query(Device.device_id).filter(Device.status == 'active').all()
     device_ids = [d[0] for d in device_ids if d[0]]  # Remove None values
 
     sites = db.session.query(VehicleEntry.site).distinct().all()
